@@ -179,8 +179,7 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
     val workingToBatch = (1 to subModelNumber).map(_ => {
       SampleToMiniBatch[T](
         batchSize = batchPerCore * subModelNumber,
-        partitionNum = Some(subModelNumber),
-        featurePaddingParam = featurePaddingParam)
+        partitionNum = Some(subModelNumber))
     }).toArray
 
     val result = dataIter.map(batch => {
