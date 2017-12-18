@@ -21,7 +21,7 @@ import com.intel.analytics.bigdl.dataset._
 import com.intel.analytics.bigdl.nn.abstractnn.Activity
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
-import com.intel.analytics.bigdl.utils.{Engine, MklBlas}
+import com.intel.analytics.bigdl.utils.{Engine, MklBlas, Util}
 import com.intel.analytics.bigdl.dataset.SampleToMiniBatch
 import com.intel.analytics.bigdl.transform.vision.image.{ImageFeature, ImageFrame, LocalImageFrame}
 
@@ -74,7 +74,7 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
 
     val workingModels = (1 to subModelNumber).map(_ => {
       val submodel = model.cloneModule().evaluate()
-      putWeightBias(weightsBias, submodel)
+      Util.putWeightBias(weightsBias, submodel)
       submodel
     }).toArray
     dataIter.map(batch => {
@@ -110,7 +110,7 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
 
     val workingModels = (1 to subModelNumber).map(_ => {
       val submodel = model.cloneModule().evaluate()
-      putWeightBias(weightsBias, submodel)
+      Util.putWeightBias(weightsBias, submodel)
       submodel
     }).toArray
 
@@ -138,18 +138,6 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
 
   }
 
-  private def putWeightBias(weightBias: Array[Tensor[T]],
-                            localModel: Module[T]): Unit = {
-    val localWeightBias = localModel.parameters()._1
-    var i = 0
-    while (i < localWeightBias.length) {
-      if (localWeightBias(i) != null) {
-        localWeightBias(i).set(weightBias(i))
-      }
-      i += 1
-    }
-  }
-
   /**
    * local model predict images, return imageFrame with predicted tensor
    * @param imageFrame imageFrame that contains images
@@ -169,7 +157,7 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
 
     val workingModels = (1 to subModelNumber).map(_ => {
       val submodel = model.cloneModule().evaluate()
-      putWeightBias(weightsBias, submodel)
+      Util.putWeightBias(weightsBias, submodel)
       submodel
     }).toArray
 
