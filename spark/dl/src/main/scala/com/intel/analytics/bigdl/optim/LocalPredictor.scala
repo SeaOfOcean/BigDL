@@ -21,7 +21,8 @@ import com.intel.analytics.bigdl.dataset._
 import com.intel.analytics.bigdl.nn.abstractnn.Activity
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
-import com.intel.analytics.bigdl.utils.{Engine, MklBlas, Util}
+import com.intel.analytics.bigdl.utils.{Engine, MklBlas}
+import com.intel.analytics.bigdl.utils.Util._
 import com.intel.analytics.bigdl.dataset.SampleToMiniBatch
 import com.intel.analytics.bigdl.transform.vision.image.{ImageFeature, ImageFrame, LocalImageFrame}
 
@@ -74,7 +75,7 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
 
     val workingModels = (1 to subModelNumber).map(_ => {
       val submodel = model.cloneModule().evaluate()
-      Util.putWeightBias(weightsBias, submodel)
+      putWeightBias(weightsBias, submodel)
       submodel
     }).toArray
     dataIter.map(batch => {
@@ -110,7 +111,7 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
 
     val workingModels = (1 to subModelNumber).map(_ => {
       val submodel = model.cloneModule().evaluate()
-      Util.putWeightBias(weightsBias, submodel)
+      putWeightBias(weightsBias, submodel)
       submodel
     }).toArray
 
@@ -157,7 +158,7 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
 
     val workingModels = (1 to subModelNumber).map(_ => {
       val submodel = model.cloneModule().evaluate()
-      Util.putWeightBias(weightsBias, submodel)
+      putWeightBias(weightsBias, submodel)
       submodel
     }).toArray
 
@@ -167,7 +168,8 @@ class LocalPredictor[T: ClassTag] private[optim](model: Module[T], weightsBias: 
     val workingToBatch = (1 to subModelNumber).map(_ => {
       SampleToMiniBatch[T](
         batchSize = batchPerCore * subModelNumber,
-        partitionNum = Some(subModelNumber))
+        partitionNum = Some(subModelNumber),
+        featurePaddingParam = featurePaddingParam)
     }).toArray
 
     val result = dataIter.map(batch => {
