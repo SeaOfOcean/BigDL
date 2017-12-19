@@ -13,3 +13,15 @@ trait Transformer[A, B] extends Serializable {
  It's simple, right? What a transformer do is convert a sequence of objects of Class A to a sequence of objects of Class  B.
 
  Transformer is flexible. You can chain them together to do pre-processing. Let's still use the CNN example, say first    we need read image files from given paths, then extract the image binaries to array of float, then normalized the image  content and crop a fixed size from the image at a random position. Here we need 4 transformers, `PathToImage`,           `ImageToArray`, `Normalizor` and `Cropper`. And then chain them together.
+
+## **FeatureTransformer**
+`FeatureTransformer` is the transformer that transforms from `ImageFeature` to `ImageFeature`.
+`FeatureTransformer` extends 'Transformer[ImageFeature, ImageFeature]'.
+
+FeatureTransformer can be chained with FeatureTransformer with the
+
+The key function in `FeatureTransformer` is `transform`, which does the ImageFeature transformation
+and exception control.
+While `transformMat` is called by `transform`,
+and it is expected to contain the actual transformation of an ImageFeature.
+It is advised to override `transformMat` when you implement your own FeatureTransformer.

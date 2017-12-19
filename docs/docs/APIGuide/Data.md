@@ -391,3 +391,60 @@ Output may be
 
 [com.intel.analytics.bigdl.tensor.DenseTensor$mcF$sp of size 1x3x3]
 ```
+
+## **ImageFeature**
+`ImageFeature` is a representation of one image.
+It can include various status of an image, by using key-value store.
+The key is string that identify the corresponding value.
+Some predefined keys are listed as follows:
+* uri: uri that identifies image
+* mat: image in OpenCVMat
+* bytes: image file in bytes
+* floats: image pixels in float array
+* size: current image size (height, width, channel)
+* originalSize: original image size (height, width, channel)
+* label: image label
+* predict: image prediction result
+* boundingBox: store boundingBox of current image,
+it may be used in crop/expand that may change the size of image
+* sample: sample
+* imageTensor: Image Tensor
+
+Besides the above keys, you can also define your key and store information needed
+in the prediction pipeline.
+
+**Scala example:**
+```scala
+import com.intel.analytics.bigdl.transform.vision.image.ImageFeature
+import org.apache.commons.io.FileUtils
+import java.io.File
+
+val file = new File("/tmp/test.jpg")
+val imageFeature = ImageFeature(FileUtils.readFileToByteArray(file), uri = file.getAbsolutePath)
+println(imageFeature.keys())
+```
+
+output is
+
+```
+Set(uri, bytes)
+```
+
+**Python example:**
+```python
+```
+
+## **ImageFrame**
+`ImageFrame` is a collection of `ImageFeature`.
+It can be a `DistributedImageFrame` for distributed image RDD or
+ `LocalImageFrame` for local image array.
+You can read an `ImageFrame` from local/distributed folder/parquet file,
+or you can directly construct a ImageFrame from RDD[ImageFeature] or Array[ImageFeature].
+
+**Scala example:**
+```scala
+```
+
+**Python example:**
+```python
+```
