@@ -2615,8 +2615,9 @@ class PythonBigDL[T: ClassTag](implicit ev: TensorNumeric[T]) extends Serializab
     HFlip()
   }
 
-  def createResize(resizeH: Int, resizeW: Int, resizeMode: Int = Imgproc.INTER_LINEAR): Resize = {
-    Resize(resizeH, resizeW, resizeMode)
+  def createResize(resizeH: Int, resizeW: Int, resizeMode: Int = Imgproc.INTER_LINEAR,
+    useScaleFactor: Boolean): Resize = {
+    Resize(resizeH, resizeW, resizeMode, useScaleFactor)
   }
 
   def createColorJitter(brightnessProb: Double = 0.5, brightnessDelta: Double = 32,
