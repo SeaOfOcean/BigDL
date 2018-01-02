@@ -19,6 +19,7 @@ package com.intel.analytics.bigdl.nn
 import com.intel.analytics.bigdl.nn.abstractnn.{AbstractModule, DataFormat}
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
+import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 import com.intel.analytics.bigdl.utils.{T, Table}
 
 @SerialVersionUID(-1562995431845030993L)
@@ -33,7 +34,6 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
     require(boxes.dim() == 2 && boxes.size(2) == 4, "boxes should be batchxNx4 tensor," +
       s" while actual is ${boxes.size().mkString("x")}")
     val channelDim = 2
-    output.resize(boxes.size(1), poolH, poolW, input[Tensor[Float]](2).size(channelDim))
     // Assign each ROI to a level in the pyramid based on the ROI area
     val splits = boxes.split(2)
     val y1 = splits(0)
@@ -117,17 +117,27 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
       level += 1
     }
     // Pack pooled features into one tensor
-    val pooled = concat.forward(pooledTable)
+    val pooled = concat.forward(pooledTable).asInstanceOf[Tensor[Float]]
     println(boxToLevel)
     val boxToLevels = concat2.forward(boxToLevel)
     println(pooled.size().mkString("x"))
-    println(boxToLevels.size().mkString("x"))
+    val ix = boxToLevels.squeeze()
+      .toArray().asInstanceOf[Array[Int]].zipWithIndex.sortBy(_._1).map(_._2)
+    println(ix.mkString(","))
 
     // Feature Maps. List of feature maps from different level of the
     // feature pyramid. Each is [batch, height, width, channels]
 
+    i = 0
+
+
+    output.resizeAs(pooled)
+    while (i < ix.length) {
+      i += 1
+      output(i).copy(pooled(ix(i - 1) + 1))
+    }
     // Assign each ROI to a level in the pyramid based on the ROI area.
-    output
+    output.resize(1, output.size(1), output.size(2), output.size(3), output.size(4))
   }
 
   override def updateGradInput(input: Table, gradOutput: Tensor[Float]): Table = {

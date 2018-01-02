@@ -28,10 +28,10 @@ class PyramidROIAlignSpec extends KerasBaseSpec {
       0.38094113, 0.06593635, 0.2881456, 0.90959353,
       0.21338535, 0.45212396, 0.93120602, 0.02489923)).resize(1, 5, 4)
     val channel = 256
-    val p2 = Tensor[Float](1, channel, 256, 256)
-    val p3 = Tensor[Float](1, channel, 128, 128)
-    val p4 = Tensor[Float](1, channel, 64, 64)
-    val p5 = Tensor[Float](1, channel, 32, 32)
+    val p2 = Tensor[Float](1, channel, 256, 256).randn()
+    val p3 = Tensor[Float](1, channel, 128, 128).randn()
+    val p4 = Tensor[Float](1, channel, 64, 64).randn()
+    val p5 = Tensor[Float](1, channel, 32, 32).randn()
     val input = T(rois, p2, p3, p4, p5)
     val layer = new PyramidROIAlign(7, 7, 400, 500, 3)
     layer.forward(input)
