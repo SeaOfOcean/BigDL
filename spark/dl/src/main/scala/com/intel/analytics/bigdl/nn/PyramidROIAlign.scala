@@ -148,3 +148,9 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
     x.log().div(Math.log(2).toFloat)
   }
 }
+
+object PyramidROIAlign {
+  def apply(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
+    (implicit ev: TensorNumeric[Float]): PyramidROIAlign =
+    new PyramidROIAlign(poolH, poolW, imgH, imgW, imgC)
+}

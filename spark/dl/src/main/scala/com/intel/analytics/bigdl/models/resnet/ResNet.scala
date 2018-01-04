@@ -273,15 +273,18 @@ object ResNet {
     val dataset = dataSet.getOrElse(DatasetType.CIFAR10).asInstanceOf[DatasetType]
     val optnet = opt.get("optnet").getOrElse(true)
 
-    def shortcutFunc(nInputPlane: Int, nOutputPlane: Int, stride: Int, input: ModuleNode[Float])
+    def shortcutFunc(nInputPlane: Int, nOutputPlane: Int, stride: Int, input: ModuleNode[Float],
+      stage: Int, block: Char)
     : ModuleNode[Float] = {
+      val convNameBase = s"res$stage${block}_branch"
+      val bnNameBase = s"bn$stage${block}_branch"
       val useConv = shortcutType == ShortcutType.C ||
         (shortcutType == ShortcutType.B && nInputPlane != nOutputPlane)
 
       if (useConv) {
         val conv1 = Convolution(nInputPlane, nOutputPlane, 1, 1, stride, stride,
-          optnet = optnet).inputs(input)
-        val bn1 = SpatialBatchNormalization(nOutputPlane).inputs(conv1)
+          optnet = optnet).setName(convNameBase + "1").inputs(input)
+        val bn1 = SpatialBatchNormalization(nOutputPlane).setName(bnNameBase + "1").inputs(conv1)
         bn1
       } else if (nInputPlane != nOutputPlane) {
         val pool1 = SpatialAveragePooling(1, 1, stride, stride).inputs(input)
@@ -293,7 +296,8 @@ object ResNet {
       }
     }
 
-    def basicBlockFunc(n: Int, stride: Int, input: ModuleNode[Float])
+    def basicBlockFunc(n: Int, stride: Int, input: ModuleNode[Float], stage: Int,
+      block: Char)
     : ModuleNode[Float] = {
       val nInputPlane = iChannels
       iChannels = n
@@ -303,36 +307,44 @@ object ResNet {
       val relu1 = ReLU(true).inputs(bn1)
       val conv2 = SpatialConvolution(n, n, 3, 3, 1, 1, 1, 1).inputs(relu1)
       val bn2 = SpatialBatchNormalization(n).inputs(conv2)
-      val shortcut = shortcutFunc(nInputPlane, n, stride, input)
+      val shortcut = shortcutFunc(nInputPlane, n, stride, input, stage, block)
       val add = CAddTable(true).inputs(bn2, shortcut)
       val output = ReLU(true).inputs(add)
       output
     }
 
-    def bottleneckFunc(n: Int, stride: Int, input: ModuleNode[Float]): ModuleNode[Float] = {
+    def bottleneckFunc(n: Int, stride: Int, input: ModuleNode[Float], stage: Int, block: Char)
+    : ModuleNode[Float] = {
+      val convNameBase = s"res$stage${block}_branch"
+      val bnNameBase = s"bn$stage${block}_branch"
       val nInputPlane = iChannels
       iChannels = n * 4
 
-      val conv1 = Convolution(nInputPlane, n, 1, 1, 1, 1, 0, 0, optnet = optnet).inputs(input)
-      val bn1 = SpatialBatchNormalization(n).inputs(conv1)
+      val conv1 = Convolution(nInputPlane, n, 1, 1, 1, 1, 0, 0, optnet = optnet)
+          .setName(convNameBase + "2a").inputs(input)
+      val bn1 = SpatialBatchNormalization(n).setName(bnNameBase + "2a").inputs(conv1)
       val relu = ReLU(true).inputs(bn1)
-      val conv2 = Convolution(n, n, 3, 3, stride, stride, 1, 1, optnet = optnet).inputs(relu)
-      val bn2 = SpatialBatchNormalization(n).inputs(conv2)
+      val conv2 = Convolution(n, n, 3, 3, stride, stride, 1, 1, optnet = optnet)
+        .setName(convNameBase + "2b").inputs(relu)
+      val bn2 = SpatialBatchNormalization(n).setName(bnNameBase + "2b").inputs(conv2)
       val relu2 = ReLU(true).inputs(bn2)
-      val conv3 = Convolution(n, n*4, 1, 1, 1, 1, 0, 0, optnet = optnet).inputs(relu2)
-      val sbn = SpatialBatchNormalization(n * 4).inputs(conv3)
+      val conv3 = Convolution(n, n*4, 1, 1, 1, 1, 0, 0, optnet = optnet)
+        .setName(convNameBase + "2c").inputs(relu2)
+      val sbn = SpatialBatchNormalization(n * 4).setName(bnNameBase + "2c").inputs(conv3)
 
-      val shortcut = shortcutFunc(nInputPlane, n * 4, stride, input)
+      val shortcut = shortcutFunc(nInputPlane, n * 4, stride, input, stage, block)
       val add = CAddTable(true).inputs(sbn, shortcut)
-      val output = ReLU(true).inputs(add)
+      val output = ReLU(true).setName(s"res$stage${block}_out").inputs(add)
       output
     }
 
-    def layer(block: (Int, Int, ModuleNode[Float]) => ModuleNode[Float], features: Int,
-              count: Int, stride: Int = 1)(input: ModuleNode[Float]): ModuleNode[Float] = {
-      var output = block(features, stride, input)
+    def layer(block: (Int, Int, ModuleNode[Float], Int, Char) => ModuleNode[Float],
+      features: Int, count: Int, stride: Int = 1, stage: Int)
+      (input: ModuleNode[Float]): ModuleNode[Float] = {
+      val blockName = 'a'
+      var output = block(features, stride, input, stage, blockName)
       for (i <- 2 to count) {
-        output = block(features, 1, output)
+        output = block(features, 1, output, stage, (blockName + i - 1).toChar)
       }
       output
     }
@@ -340,17 +352,17 @@ object ResNet {
     val model = if (dataset == DatasetType.ImageNet) {
       val cfg = Map(
         18 -> ((2, 2, 2, 2), 512,
-          basicBlockFunc: (Int, Int, ModuleNode[Float]) => ModuleNode[Float]),
+          basicBlockFunc: (Int, Int, ModuleNode[Float], Int, Char) => ModuleNode[Float]),
         34 -> ((3, 4, 6, 3), 512,
-          basicBlockFunc: (Int, Int, ModuleNode[Float]) => ModuleNode[Float]),
+          basicBlockFunc: (Int, Int, ModuleNode[Float], Int, Char) => ModuleNode[Float]),
         50 -> ((3, 4, 6, 3), 2048,
-          bottleneckFunc: (Int, Int, ModuleNode[Float]) => ModuleNode[Float]),
+          bottleneckFunc: (Int, Int, ModuleNode[Float], Int, Char) => ModuleNode[Float]),
         101 -> ((3, 4, 23, 3), 2048,
-          bottleneckFunc: (Int, Int, ModuleNode[Float]) => ModuleNode[Float]),
+          bottleneckFunc: (Int, Int, ModuleNode[Float], Int, Char) => ModuleNode[Float]),
         152 -> ((3, 8, 36, 3), 2048,
-          bottleneckFunc: (Int, Int, ModuleNode[Float]) => ModuleNode[Float]),
+          bottleneckFunc: (Int, Int, ModuleNode[Float], Int, Char) => ModuleNode[Float]),
         200 -> ((3, 24, 36, 3), 2048,
-          bottleneckFunc: (Int, Int, ModuleNode[Float]) => ModuleNode[Float])
+          bottleneckFunc: (Int, Int, ModuleNode[Float], Int, Char) => ModuleNode[Float])
       )
 
       require(cfg.keySet.contains(depth), s"Invalid depth ${depth}")
@@ -361,14 +373,14 @@ object ResNet {
 
       val input = Input()
       val conv1 = Convolution(3, 64, 7, 7, 2, 2, 3, 3,
-        optnet = optnet, propagateBack = false).inputs(input)
-      val bn = SpatialBatchNormalization(64).inputs(conv1)
+        optnet = optnet, propagateBack = false).setName("conv1").inputs(input)
+      val bn = SpatialBatchNormalization(64).setName("bn_conv1").inputs(conv1)
       val relu = ReLU(true).inputs(bn)
-      val pool = SpatialMaxPooling(3, 3, 2, 2, 1, 1).inputs(relu)
-      val layer1 = layer(block, 64, loopConfig._1)(pool)
-      val layer2 = layer(block, 128, loopConfig._2, 2)(layer1)
-      val layer3 = layer(block, 256, loopConfig._3, 2)(layer2)
-      val layer4 = layer(block, 512, loopConfig._4, 2)(layer3)
+      val pool = SpatialMaxPooling(3, 3, 2, 2, 1, 1).setName("pool1").inputs(relu)
+      val layer1 = layer(block, 64, loopConfig._1, stage = 2)(pool)
+      val layer2 = layer(block, 128, loopConfig._2, 2, stage = 3)(layer1)
+      val layer3 = layer(block, 256, loopConfig._3, 2, stage = 4)(layer2)
+      val layer4 = layer(block, 512, loopConfig._4, 2, stage = 5)(layer3)
       val pool2 = SpatialAveragePooling(7, 7, 1, 1).inputs(layer4)
       val view = View(nFeatures).setNumInputDims(3).inputs(pool2)
       val output = Linear(nFeatures, classNum).inputs(view)
@@ -385,9 +397,9 @@ object ResNet {
         optnet = optnet, propagateBack = false).inputs(input)
       val bn = SpatialBatchNormalization(16).inputs(conv1)
       val relu = ReLU(true).inputs(bn)
-      val layer1 = layer(basicBlockFunc, 16, n)(relu)
-      val layer2 = layer(basicBlockFunc, 32, n, 2)(layer1)
-      val layer3 = layer(basicBlockFunc, 64, n, 2)(layer2)
+      val layer1 = layer(basicBlockFunc, 16, n, stage = 2)(relu)
+      val layer2 = layer(basicBlockFunc, 32, n, 2, stage = 3)(layer1)
+      val layer3 = layer(basicBlockFunc, 64, n, 2, stage = 4)(layer2)
       val pool = SpatialAveragePooling(8, 8, 1, 1).inputs(layer3)
       val view = View(64).setNumInputDims(3).inputs(pool)
       val output = Linear(64, 10).inputs(view)
