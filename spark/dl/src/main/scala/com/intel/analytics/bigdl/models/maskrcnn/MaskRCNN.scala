@@ -98,7 +98,8 @@ object MaskRCNN {
     val c3 = resnet.node("res3d_out")
     val c4 = resnet.node("res4w_out")
     val c5 = resnet.node("res5c_out")
-//    Graph(input, Array(c1, c2, c3, c4, c5))
+    // todo: for test
+    return Graph(data, Array(c1, c2, c3, c4, c5))
 
     val p5_add = SpatialConvolution(256, 256, 1, 1).setName("fpn_c5p5").inputs(c5)
     val fpn_p5upsampled = UpSampling2D(Array(2, 2)).setName("fpn_p5upsampled").inputs(p5_add)
