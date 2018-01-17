@@ -23,11 +23,11 @@ import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.nn.Utils
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.utils.Table
-import org.scalatest.FlatSpec
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.io.Source
 
-class MaskRCNNSpec extends FlatSpec {
+class MaskRCNNSpec extends FlatSpec with Matchers {
 
   def loadFeaturesFullName(s: String, hasSize: Boolean = true,
     middleRoot: String = middleRoot): Tensor[Float] = {
@@ -65,22 +65,63 @@ class MaskRCNNSpec extends FlatSpec {
     }
   }
 
+  "compare simple" should "work" in {
+    val input = Tensor[Float](1, 3, 1024, 1024).fill(1)
+
+    val model = MaskRCNN().evaluate()
+    val layers = Utils.getNamedModules(model)
+
+    loadWeights(model, "/home/jxy/data/maskrcnn/weights2/")
+
+    val out = model.forward(input)
+    middleRoot = "/home/jxy/data/maskrcnn/weights2/C1"
+    val expected = loadFeatures("C1")
+    toHWC(out.toTensor).contiguous().map(expected, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+    layers.foreach(x => {
+      println(s"=========================================================, ${x._1}")
+      println(toHWC(x._2.output.toTensor))
+//      if (x._1.contains("SpatialZeroPadding")) {
+//        middleRoot = "/home/jxy/data/maskrcnn/weights2/padding"
+//        val expected = loadFeatures("padding")
+//        toHWC(x._2.output.toTensor).contiguous() should be (expected)
+//      }
+//      if (x._1 == "conv1") {
+//        middleRoot = "/home/jxy/data/maskrcnn/weights2/conv1"
+//        val expected = loadFeatures("conv1")
+//        toHWC(x._2.output.toTensor).contiguous().map(expected, (a, b) => {
+//          assert(Math.abs(a - b) < 1e-5); a
+//        })
+//      }
+      if (x._1 == "relu") {
+        middleRoot = "/home/jxy/data/maskrcnn/weights2/relu"
+        val expected = loadFeatures("relu")
+        toHWC(x._2.output.toTensor).contiguous().map(expected, (a, b) => {
+          assert(Math.abs(a - b) < 1e-5); a
+        })
+      }
+    })
+//    println(model.output)
+  }
+
   "MaskRCNN forward" should "work" in {
     val input = loadFeatures("data").transpose(2, 4).transpose(3, 4).contiguous()
     val model = MaskRCNN()
 
-    model.forward(input)
     loadWeights(model)
+    model.forward(input)
     println(model.output.toTable(2))
   }
 
-  def loadWeights(model: Module[Float]): Unit = {
+  def loadWeights(model: Module[Float], root: String = "/home/jxy/data/maskrcnn/weights/"): Unit = {
     val modules = Utils.getNamedModules(model)
     modules.foreach(x => {
       val name = x._1
       val layer = x._2
       if (layer.getParametersTable() != null) {
-        middleRoot = s"/home/jxy/data/maskrcnn/weights/$name"
+        middleRoot = root + s"$name"
+        println(s"load for $middleRoot")
         val pt = layer.getParametersTable()
         if (pt.contains(name)) {
           pt[Table](name).keySet.foreach(x => {
@@ -89,15 +130,16 @@ class MaskRCNNSpec extends FlatSpec {
 
               val load = if (x == "weight") {
                 if (layer.getClass.getCanonicalName.contains("BatchNorm")) {
-                  loadFeatures("beta:0")
+                  loadFeatures("gamma:0")
                 } else {
                   var w = loadFeatures("kernel:0")
-                  w = w.transpose(1, 4).transpose(2, 3).contiguous()
+//                  w = toCHW(w).contiguous()
+                  w = w.transpose(1, 3).transpose(2, 4).transpose(1, 2).contiguous()
                   w
                 }
               } else if (x == "bias") {
                 if (layer.getClass.getCanonicalName.contains("BatchNorm")) {
-                  loadFeatures("gamma:0")
+                  loadFeatures("beta:0")
                 } else {
                   loadFeatures("bias:0")
                 }
@@ -108,8 +150,10 @@ class MaskRCNNSpec extends FlatSpec {
                 require(x == "runningVar")
                 loadFeatures("moving_variance:0")
               }
-              compareShape(param.size(), load.size())
-              param.copy(load)
+              if (param.nElement() > 0) {
+                compareShape(param.size(), load.size())
+                param.copy(load)
+              }
             }
           })
         }
@@ -127,5 +171,15 @@ class MaskRCNNSpec extends FlatSpec {
         return
       }
     })
+  }
+
+  def toHWC(tensor: Tensor[Float]): Tensor[Float] = {
+    require(tensor.dim() == 4)
+    tensor.transpose(2, 3).transpose(3, 4)
+  }
+
+  def toCHW(tensor: Tensor[Float]): Tensor[Float] = {
+    require(tensor.dim() == 4)
+    tensor.transpose(3, 4).transpose(2, 3)
   }
 }

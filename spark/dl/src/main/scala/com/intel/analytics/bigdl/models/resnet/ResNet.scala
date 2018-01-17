@@ -372,11 +372,12 @@ object ResNet {
       logger.info(" | ResNet-" + depth + " ImageNet")
 
       val input = Input()
-      val conv1 = Convolution(3, 64, 7, 7, 2, 2, 3, 3,
+      val conv1 = Convolution(3, 64, 7, 7, 2, 2,
         optnet = optnet, propagateBack = false).setName("conv1").inputs(input)
-      val bn = SpatialBatchNormalization(64).setName("bn_conv1").inputs(conv1)
+      val bn = SpatialBatchNormalization(64, momentum = 0.99, eps = 0.001)
+        .setName("bn_conv1").inputs(conv1)
       val relu = ReLU(true).inputs(bn)
-      val pool = SpatialMaxPooling(3, 3, 2, 2, 1, 1).setName("pool1").inputs(relu)
+      val pool = SpatialMaxPooling(3, 3, 2, 2, -1, -1).setName("pool1").inputs(relu)
       val layer1 = layer(block, 64, loopConfig._1, stage = 2)(pool)
       val layer2 = layer(block, 128, loopConfig._2, 2, stage = 3)(layer1)
       val layer3 = layer(block, 256, loopConfig._3, 2, stage = 4)(layer2)
