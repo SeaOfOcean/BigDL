@@ -30,7 +30,7 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int, val ratios: Ar
   override def updateOutput(input: Table): Tensor[Float] = {
     val scores = input(1)
     val anchors = input[Tensor[Float]](3)
-
+    null
 
   }
 

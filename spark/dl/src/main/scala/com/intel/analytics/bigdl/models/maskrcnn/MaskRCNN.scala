@@ -91,8 +91,11 @@ object MaskRCNN {
     val resnet = ResNet.graph(1000,
       T("shortcutType" -> ShortcutType.B,
         "depth" -> 101, "dataset" -> DatasetType.ImageNet)).asInstanceOf[Graph[Float]]
+    val zeroPadding = SpatialZeroPadding(3, 3, 3, 3).inputs(data)
     val conv1 = resnet.node("conv1")
-    data -> conv1
+    conv1.removePrevEdges()
+    zeroPadding -> conv1
+
     val c1 = resnet.node("pool1")
     val c2 = resnet.node("res2c_out")
     val c3 = resnet.node("res3d_out")
