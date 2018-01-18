@@ -146,7 +146,7 @@ object ResNet {
       if (useConv) {
         Sequential()
           .add(Convolution(nInputPlane, nOutputPlane, 1, 1, stride, stride, optnet = optnet))
-          .add(SpatialBatchNormalization(nOutputPlane))
+          .add(SpatialBatchNormalization(nOutputPlane, eps = 0.001))
       } else if (nInputPlane != nOutputPlane) {
         Sequential()
           .add(SpatialAveragePooling(1, 1, stride, stride))
@@ -164,10 +164,10 @@ object ResNet {
 
       val s = Sequential()
       s.add(Convolution(nInputPlane, n, 3, 3, stride, stride, 1, 1, optnet = optnet))
-      s.add(SpatialBatchNormalization(n))
+      s.add(SpatialBatchNormalization(n, eps = 0.001))
       s.add(ReLU(true))
       s.add(Convolution(n, n, 3, 3, 1, 1, 1, 1, optnet = optnet))
-      s.add(SpatialBatchNormalization(n))
+      s.add(SpatialBatchNormalization(n, eps = 0.001))
 
       Sequential()
         .add(ConcatTable()
@@ -183,13 +183,13 @@ object ResNet {
 
       val s = Sequential()
       s.add(Convolution(nInputPlane, n, 1, 1, 1, 1, 0, 0, optnet = optnet))
-        .add(SpatialBatchNormalization(n))
+        .add(SpatialBatchNormalization(n, eps = 0.001))
         .add(ReLU(true))
         .add(Convolution(n, n, 3, 3, stride, stride, 1, 1, optnet = optnet))
-        .add(SpatialBatchNormalization(n))
+        .add(SpatialBatchNormalization(n, eps = 0.001))
         .add(ReLU(true))
         .add(Convolution(n, n*4, 1, 1, 1, 1, 0, 0, optnet = optnet))
-        .add(SpatialBatchNormalization(n * 4))
+        .add(SpatialBatchNormalization(n * 4, eps = 0.001))
 
       Sequential()
         .add(ConcatTable()
@@ -232,7 +232,7 @@ object ResNet {
       logger.info(" | ResNet-" + depth + " ImageNet")
 
       model.add(Convolution(3, 64, 7, 7, 2, 2, 3, 3, optnet = optnet, propagateBack = false))
-        .add(SpatialBatchNormalization(64))
+        .add(SpatialBatchNormalization(64, eps = 0.001))
         .add(ReLU(true))
         .add(SpatialMaxPooling(3, 3, 2, 2, 1, 1))
         .add(layer(block, 64, loopConfig._1))
@@ -250,7 +250,7 @@ object ResNet {
       logger.info(" | ResNet-" + depth + " CIFAR-10")
 
       model.add(Convolution(3, 16, 3, 3, 1, 1, 1, 1, optnet = optnet, propagateBack = false))
-      model.add(SpatialBatchNormalization(16))
+      model.add(SpatialBatchNormalization(16, eps = 0.001))
       model.add(ReLU(true))
       model.add(layer(basicBlock, 16, n))
       model.add(layer(basicBlock, 32, n, 2))
@@ -284,7 +284,8 @@ object ResNet {
       if (useConv) {
         val conv1 = Convolution(nInputPlane, nOutputPlane, 1, 1, stride, stride,
           optnet = optnet).setName(convNameBase + "1").inputs(input)
-        val bn1 = SpatialBatchNormalization(nOutputPlane).setName(bnNameBase + "1").inputs(conv1)
+        val bn1 = SpatialBatchNormalization(nOutputPlane, eps = 0.001)
+          .setName(bnNameBase + "1").inputs(conv1)
         bn1
       } else if (nInputPlane != nOutputPlane) {
         val pool1 = SpatialAveragePooling(1, 1, stride, stride).inputs(input)
@@ -303,10 +304,10 @@ object ResNet {
       iChannels = n
 
       val conv1 = SpatialConvolution(nInputPlane, n, 3, 3, stride, stride, 1, 1).inputs(input)
-      val bn1 = SpatialBatchNormalization(n).inputs(conv1)
+      val bn1 = SpatialBatchNormalization(n, eps = 0.001).inputs(conv1)
       val relu1 = ReLU(true).inputs(bn1)
       val conv2 = SpatialConvolution(n, n, 3, 3, 1, 1, 1, 1).inputs(relu1)
-      val bn2 = SpatialBatchNormalization(n).inputs(conv2)
+      val bn2 = SpatialBatchNormalization(n, eps = 0.001).inputs(conv2)
       val shortcut = shortcutFunc(nInputPlane, n, stride, input, stage, block)
       val add = CAddTable(true).inputs(bn2, shortcut)
       val output = ReLU(true).inputs(add)
@@ -322,15 +323,16 @@ object ResNet {
 
       val conv1 = Convolution(nInputPlane, n, 1, 1, 1, 1, 0, 0, optnet = optnet)
           .setName(convNameBase + "2a").inputs(input)
-      val bn1 = SpatialBatchNormalization(n).setName(bnNameBase + "2a").inputs(conv1)
+      val bn1 = SpatialBatchNormalization(n, eps = 0.001).setName(bnNameBase + "2a").inputs(conv1)
       val relu = ReLU(true).inputs(bn1)
       val conv2 = Convolution(n, n, 3, 3, stride, stride, 1, 1, optnet = optnet)
         .setName(convNameBase + "2b").inputs(relu)
-      val bn2 = SpatialBatchNormalization(n).setName(bnNameBase + "2b").inputs(conv2)
+      val bn2 = SpatialBatchNormalization(n, eps = 0.001).setName(bnNameBase + "2b").inputs(conv2)
       val relu2 = ReLU(true).inputs(bn2)
       val conv3 = Convolution(n, n*4, 1, 1, 1, 1, 0, 0, optnet = optnet)
         .setName(convNameBase + "2c").inputs(relu2)
-      val sbn = SpatialBatchNormalization(n * 4).setName(bnNameBase + "2c").inputs(conv3)
+      val sbn = SpatialBatchNormalization(n * 4, eps = 0.001)
+        .setName(bnNameBase + "2c").inputs(conv3)
 
       val shortcut = shortcutFunc(nInputPlane, n * 4, stride, input, stage, block)
       val add = CAddTable(true).inputs(sbn, shortcut)
@@ -374,7 +376,7 @@ object ResNet {
       val input = Input()
       val conv1 = Convolution(3, 64, 7, 7, 2, 2,
         optnet = optnet, propagateBack = false).setName("conv1").inputs(input)
-      val bn = SpatialBatchNormalization(64, momentum = 0.99, eps = 0.001)
+      val bn = SpatialBatchNormalization(64, eps = 0.001)
         .setName("bn_conv1").inputs(conv1)
       val relu = ReLU(true).inputs(bn)
       val pool = SpatialMaxPooling(3, 3, 2, 2, -1, -1).setName("pool1").inputs(relu)
@@ -396,7 +398,7 @@ object ResNet {
       val input = Input()
       val conv1 = Convolution(3, 16, 3, 3, 1, 1, 1, 1,
         optnet = optnet, propagateBack = false).inputs(input)
-      val bn = SpatialBatchNormalization(16).inputs(conv1)
+      val bn = SpatialBatchNormalization(16, eps = 0.001).inputs(conv1)
       val relu = ReLU(true).inputs(bn)
       val layer1 = layer(basicBlockFunc, 16, n, stage = 2)(relu)
       val layer2 = layer(basicBlockFunc, 32, n, 2, stage = 3)(layer1)

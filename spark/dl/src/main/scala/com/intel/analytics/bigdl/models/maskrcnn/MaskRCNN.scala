@@ -17,7 +17,7 @@
 package com.intel.analytics.bigdl.models.maskrcnn
 
 import com.intel.analytics.bigdl.Module
-import com.intel.analytics.bigdl.models.resnet.ResNet
+import com.intel.analytics.bigdl.models.resnet.{Convolution, ResNet}
 import com.intel.analytics.bigdl.models.resnet.ResNet.{DatasetType, ShortcutType}
 import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
@@ -55,6 +55,113 @@ object MaskRCNN {
   val POOL_SIZE = 7
   val MASK_POOL_SIZE = 14
 
+  def identityBlock(nInputPlanes: Int, input: ModuleNode[Float],
+    kernelSize: Int, filters: Array[Int],
+    stage: Int, block: Any, useBias: Boolean = true): ModuleNode[Float] = {
+    val convNameBase = s"res$stage${block}_branch"
+    val bnNameBase = s"bn$stage${block}_branch"
+
+    var x = SpatialConvolution(nInputPlanes, filters(0), 1, 1, withBias = useBias)
+      .setName(s"${convNameBase}2a").inputs(input)
+    x = SpatialBatchNormalization(filters(0), eps = 0.001).setName(bnNameBase + "2a").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    x = SpatialConvolution(filters(0), filters(1), kernelSize, kernelSize, padH = -1, padW = -1,
+      withBias = useBias).setName(convNameBase + "2b").inputs(x)
+    x = SpatialBatchNormalization(filters(1), eps = 0.001).setName(bnNameBase + "2b").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    x = SpatialConvolution(filters(1), filters(2), 1, 1, withBias = useBias)
+      .setName(convNameBase + "2c").inputs(x)
+    x = SpatialBatchNormalization(filters(2), eps = 0.001).setName(bnNameBase + "2c").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    x = CAddTable(true).inputs(x, input)
+    x = ReLU(true).setName(s"res$stage${block}_out").inputs(x)
+
+    x
+  }
+
+  def convBlock(nInputPlanes: Int, input: ModuleNode[Float],
+    kernelSize: Int, filters: Array[Int],
+    stage: Int, block: Any, strides: (Int, Int) = (2, 2),
+    useBias: Boolean = true): ModuleNode[Float] = {
+    val convNameBase = s"res$stage${block}_branch"
+    val bnNameBase = s"bn$stage${block}_branch"
+
+    var x = SpatialConvolution(nInputPlanes, filters(0), 1, 1, strides._1, strides._2,
+      withBias = useBias).setName(s"${convNameBase}2a").inputs(input)
+    x = SpatialBatchNormalization(filters(0), eps = 0.001).setName(bnNameBase + "2a").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    x = SpatialConvolution(filters(0), filters(1), kernelSize, kernelSize, padH = -1, padW = -1,
+      withBias = useBias).setName(convNameBase + "2b").inputs(x)
+    x = SpatialBatchNormalization(filters(1), eps = 0.001).setName(bnNameBase + "2b").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    x = SpatialConvolution(filters(1), filters(2), 1, 1, withBias = useBias)
+      .setName(convNameBase + "2c").inputs(x)
+    x = SpatialBatchNormalization(filters(2), eps = 0.001).setName(bnNameBase + "2c").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    var shortCut = SpatialConvolution(nInputPlanes, filters(2), 1, 1,
+      strides._1, strides._2, withBias = useBias).setName(s"${convNameBase}1").inputs(input)
+    shortCut = SpatialBatchNormalization(filters(2), eps = 0.001)
+      .setName(bnNameBase + "1").inputs(shortCut)
+
+    x = CAddTable(true).inputs(x, shortCut)
+    x = ReLU(true).setName(s"res$stage${block}_out").inputs(x)
+
+    x
+  }
+
+  def resnetGraph(inputImage: ModuleNode[Float], architecture: String, stage5: Boolean = false,
+    optnet: Boolean = true): Array[ModuleNode[Float]] = {
+    require(architecture == "resnet50" || architecture == "resnet101")
+    // stage1
+    var x = SpatialZeroPadding(3, 3, 3, 3).inputs(inputImage)
+    x = Convolution(3, 64, 7, 7, 2, 2,
+      optnet = optnet, propagateBack = false).setName("conv1").inputs(x)
+    x = SpatialBatchNormalization(64, eps = 0.001)
+      .setName("bn_conv1").inputs(x)
+    x = ReLU(true).inputs(x)
+    x = SpatialMaxPooling(3, 3, 2, 2, -1, -1).setName("pool1").inputs(x)
+    val C1 = x
+    // stage2
+    x = convBlock(64, x, 3, Array(64, 64, 256), stage = 2, block = 'a', strides = (1, 1))
+    x = identityBlock(256, x, 3, Array(64, 64, 256), stage = 2, block = 'b')
+    x = identityBlock(256, x, 3, Array(64, 64, 256), stage = 2, block = "c")
+    val C2 = x
+
+    // stage3
+    x = convBlock(256, x, 3, Array(128, 128, 512), stage = 3, block = "a")
+    x = identityBlock(512, x, 3, Array(128, 128, 512), stage = 3, block = "b")
+    x = identityBlock(512, x, 3, Array(128, 128, 512), stage = 3, block = "c")
+    x = identityBlock(512, x, 3, Array(128, 128, 512), stage = 3, block = "d")
+    val C3 = x
+    // Stage 4
+    x = convBlock(512, x, 3, Array(256, 256, 1024), stage = 4, block = 'a')
+    val blockCount = architecture match {
+      case "resnet50" => 5
+      case "resnet101" => 22
+    }
+    (0 until blockCount).foreach(i => {
+      x = identityBlock(1024, x, 3, Array(256, 256, 1024), stage = 4, block = (98 + i).toChar)
+    })
+    val C4 = x
+    // Stage 5
+    val C5 = if (stage5) {
+      x = convBlock(1024, x, 3, Array(512, 512, 2048), stage = 5, block = 'a')
+      x = identityBlock(2048, x, 3, Array(512, 512, 2048), stage = 5, block = 'b')
+      x = identityBlock(2048, x, 3, Array(512, 512, 2048), stage = 5, block = 'c')
+      x
+    }
+    else {
+      null
+    }
+    Array(C1, C2, C3, C4, C5)
+  }
+
   /**
    * Builds the Region Proposal Network.
    * It wraps the RPN graph so it can be used multiple times with shared weights.
@@ -89,23 +196,26 @@ object MaskRCNN {
   def apply(NUM_CLASSES: Int = 81): Module[Float] = {
     val data = Input()
     val imInfo = Input()
-    val resnet = ResNet.graph(1000,
-      T("shortcutType" -> ShortcutType.B,
-        "depth" -> 101, "dataset" -> DatasetType.ImageNet)).asInstanceOf[Graph[Float]]
-    val zeroPadding = SpatialZeroPadding(3, 3, 3, 3).inputs(data)
-    val conv1 = resnet.node("conv1")
-    conv1.removePrevEdges()
-    zeroPadding -> conv1
-
-    val c1 = resnet.node("pool1")
-    val c2 = resnet.node("res2c_out")
-    val c3 = resnet.node("res3d_out")
-    val c4 = resnet.node("res4w_out")
-    val c5 = resnet.node("res5c_out")
-    // todo: for test
-    c1.removeNextEdges()
-    return Graph(data, Array(c1))
-//    return Graph(data, Array(c1, c2, c3, c4, c5))
+    //    val resnet = ResNet.graph(1000,
+//      T("shortcutType" -> ShortcutType.B,
+//        "depth" -> 101, "dataset" -> DatasetType.ImageNet)).asInstanceOf[Graph[Float]]
+//    val zeroPadding = SpatialZeroPadding(3, 3, 3, 3).inputs(data)
+//    val conv1 = resnet.node("conv1")
+//    conv1.removePrevEdges()
+//    zeroPadding -> conv1
+//
+//    val c1 = resnet.node("pool1")
+//    val c2 = resnet.node("res2c_out")
+//    val c3 = resnet.node("res3d_out")
+//    val c4 = resnet.node("res4w_out")
+//    val c5 = resnet.node("res5c_out")
+    val resnetBranches = resnetGraph(data, "resnet101", stage5 = true)
+        val c1 = resnetBranches(0)
+    val c2 = resnetBranches(1)
+    val c3 = resnetBranches(2)
+    val c4 = resnetBranches(3)
+    val c5 = resnetBranches(4)
+    return Graph(data, resnetBranches)
 
     val p5_add = SpatialConvolution(256, 256, 1, 1).setName("fpn_c5p5").inputs(c5)
     val fpn_p5upsampled = UpSampling2D(Array(2, 2)).setName("fpn_p5upsampled").inputs(p5_add)
