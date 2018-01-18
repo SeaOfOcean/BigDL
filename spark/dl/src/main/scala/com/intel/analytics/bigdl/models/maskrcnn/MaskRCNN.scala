@@ -74,7 +74,6 @@ object MaskRCNN {
     x = SpatialConvolution(filters(1), filters(2), 1, 1, withBias = useBias)
       .setName(convNameBase + "2c").inputs(x)
     x = SpatialBatchNormalization(filters(2), eps = 0.001).setName(bnNameBase + "2c").inputs(x)
-    x = ReLU(true).inputs(x)
 
     x = CAddTable(true).inputs(x, input)
     x = ReLU(true).setName(s"res$stage${block}_out").inputs(x)
@@ -102,7 +101,6 @@ object MaskRCNN {
     x = SpatialConvolution(filters(1), filters(2), 1, 1, withBias = useBias)
       .setName(convNameBase + "2c").inputs(x)
     x = SpatialBatchNormalization(filters(2), eps = 0.001).setName(bnNameBase + "2c").inputs(x)
-    x = ReLU(true).inputs(x)
 
     var shortCut = SpatialConvolution(nInputPlanes, filters(2), 1, 1,
       strides._1, strides._2, withBias = useBias).setName(s"${convNameBase}1").inputs(input)
