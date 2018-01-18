@@ -65,23 +65,35 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     }
   }
 
-  "compare simple" should "work" in {
+  "compare resnet" should "work" in {
     val input = Tensor[Float](1, 3, 1024, 1024).fill(1)
 
     val model = MaskRCNN().evaluate()
     val layers = Utils.getNamedModules(model)
 
-    loadWeights(model, "/home/jxy/data/maskrcnn/weights2/")
+    loadWeights(model, "/home/jxy/data/maskrcnn/weights3/")
 
-    val out = model.forward(input)
-    middleRoot = "/home/jxy/data/maskrcnn/weights2/C1"
+    val out = model.forward(input).toTable
+    middleRoot = "/home/jxy/data/maskrcnn/weights3/C1"
     val expected = loadFeatures("C1")
-    toHWC(out.toTensor).contiguous().map(expected, (a, b) => {
+    toHWC(out[Tensor[Float]](1)).contiguous().map(expected, (a, b) => {
       assert(Math.abs(a - b) < 1e-5); a
     })
-    layers.foreach(x => {
-      println(s"=========================================================, ${x._1}")
-      println(toHWC(x._2.output.toTensor))
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights3/C21"
+    val expected21 = loadFeatures("C21")
+    toHWC(out[Tensor[Float]](6)).contiguous().map(expected21, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights3/C2"
+    val expected2 = loadFeatures("C2")
+    toHWC(out[Tensor[Float]](2)).contiguous().map(expected2, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+//    layers.foreach(x => {
+//      println(s"=========================================================, ${x._1}")
+//      println(toHWC(x._2.output.toTensor))
 //      if (x._1.contains("SpatialZeroPadding")) {
 //        middleRoot = "/home/jxy/data/maskrcnn/weights2/padding"
 //        val expected = loadFeatures("padding")
@@ -94,14 +106,14 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 //          assert(Math.abs(a - b) < 1e-5); a
 //        })
 //      }
-      if (x._1 == "relu") {
-        middleRoot = "/home/jxy/data/maskrcnn/weights2/relu"
-        val expected = loadFeatures("relu")
-        toHWC(x._2.output.toTensor).contiguous().map(expected, (a, b) => {
-          assert(Math.abs(a - b) < 1e-5); a
-        })
-      }
-    })
+//      if (x._1 == "relu") {
+//        middleRoot = "/home/jxy/data/maskrcnn/weights2/relu"
+//        val expected = loadFeatures("relu")
+//        toHWC(x._2.output.toTensor).contiguous().map(expected, (a, b) => {
+//          assert(Math.abs(a - b) < 1e-5); a
+//        })
+//      }
+//    })
 //    println(model.output)
   }
 

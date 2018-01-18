@@ -128,9 +128,9 @@ object MaskRCNN {
     x = SpatialMaxPooling(3, 3, 2, 2, -1, -1).setName("pool1").inputs(x)
     val C1 = x
     // stage2
-    x = convBlock(64, x, 3, Array(64, 64, 256), stage = 2, block = 'a', strides = (1, 1))
-    x = identityBlock(256, x, 3, Array(64, 64, 256), stage = 2, block = 'b')
-    x = identityBlock(256, x, 3, Array(64, 64, 256), stage = 2, block = "c")
+    val c21 = convBlock(64, x, 3, Array(64, 64, 256), stage = 2, block = 'a', strides = (1, 1))
+    val c22 = identityBlock(256, c21, 3, Array(64, 64, 256), stage = 2, block = 'b')
+    x = identityBlock(256, c22, 3, Array(64, 64, 256), stage = 2, block = "c")
     val C2 = x
 
     // stage3
@@ -159,7 +159,7 @@ object MaskRCNN {
     else {
       null
     }
-    Array(C1, C2, C3, C4, C5)
+    Array(C1, C2, C3, C4, C5, c21, c22)
   }
 
   /**
