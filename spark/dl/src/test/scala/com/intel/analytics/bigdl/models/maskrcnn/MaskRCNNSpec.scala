@@ -136,6 +136,51 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 //    println(model.output)
   }
 
+  "compare feature map" should "work" in {
+    val input = Tensor[Float](1, 3, 128, 128).fill(1)
+
+    val model = MaskRCNN().evaluate()
+
+    loadWeights(model, "/home/jxy/data/maskrcnn/weights5/")
+
+    val out = model.forward(input).toTable
+//    middleRoot = "/home/jxy/data/maskrcnn/weights3/C1"
+//    val expected = loadFeatures("C1")
+//    toHWC(out[Tensor[Float]](1)).contiguous().map(expected, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5); a
+//    })
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights5/p2"
+    var expected2 = loadFeatures("p2")
+    var outout = toHWC(out[Tensor[Float]](1)).contiguous()
+    outout.map(expected2, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights5/p3"
+    expected2 = loadFeatures("p3")
+    outout = toHWC(out[Tensor[Float]](2)).contiguous()
+    outout.map(expected2, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights5/p4"
+    expected2 = loadFeatures("p4")
+    outout = toHWC(out[Tensor[Float]](3)).contiguous()
+    outout.map(expected2, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights5/p5"
+    expected2 = loadFeatures("p5")
+    outout = toHWC(out[Tensor[Float]](4)).contiguous()
+    outout.map(expected2, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+
+  }
+
 
   "compare convblock" should "work" in {
     val input = Tensor[Float](1, 3, 128, 128).fill(1)
@@ -250,9 +295,9 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
                 loadFeatures("moving_variance:0")
               }
               if (param.nElement() > 0) {
+                println(s"load $name $x..............................")
                 compareShape(param.size(), load.size())
                 param.copy(load)
-                println(s"load $name done ..............................")
               }
             }
           })
