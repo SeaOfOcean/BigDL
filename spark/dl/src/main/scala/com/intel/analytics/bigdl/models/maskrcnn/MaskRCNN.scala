@@ -157,7 +157,7 @@ object MaskRCNN {
     else {
       null
     }
-    Array(C1, C2, C3, C4, C5, c21, c22)
+    Array(C1, C2, C3, C4, C5)
   }
 
   /**
@@ -229,8 +229,6 @@ object MaskRCNN {
     val rpn_feature_maps = Array(p2, p3, p4, p5, p6)
     val mrcnn_feature_maps = Array(p2, p3, p4, p5)
 
-
-    return Graph(data, rpn_feature_maps)
 
     val priorBoxes = rpn_feature_maps.indices.map(i => {
       PriorBox(Array(RPN_ANCHOR_SCALES(i)), _aspectRatios = RPN_ANCHOR_RATIOS,
