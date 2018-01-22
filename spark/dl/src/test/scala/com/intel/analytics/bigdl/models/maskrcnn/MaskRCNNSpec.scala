@@ -245,17 +245,17 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     loadWeights(model)
     model.forward(input)
     val out = model.forward(input)
-    middleRoot = "/home/jxy/data/maskrcnn/weights2/C1"
-    var expected = loadFeatures("C1")
+    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
+    var expected = loadFeatures("rpn_class_logits")
     toHWC(out.toTable[Tensor[Float]](1)).contiguous().map(expected, (a, b) => {
       assert(Math.abs(a - b) < 1e-5);
       a
     })
-    middleRoot = "/home/jxy/data/maskrcnn/weights2/C2"
-    expected = loadFeatures("C2")
-    toHWC(out.toTable[Tensor[Float]](2)).contiguous().map(expected, (a, b) => {
-      assert(Math.abs(a - b) < 1e-5); a
-    })
+//    middleRoot = "/home/jxy/data/maskrcnn/weights2/C2"
+//    expected = loadFeatures("C2")
+//    toHWC(out.toTable[Tensor[Float]](2)).contiguous().map(expected, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5); a
+//    })
   }
 
   def loadWeights(model: Module[Float], root: String = "/home/jxy/data/maskrcnn/weights/"): Unit = {

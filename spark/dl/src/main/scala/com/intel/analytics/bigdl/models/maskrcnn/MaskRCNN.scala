@@ -250,6 +250,8 @@ object MaskRCNN {
     val rpn_class = JoinTable(2, 2).inputs(select(RPN_ANCHOR_RATIOS.length, 2, mapTable))
     val rpn_bbox = JoinTable(2, 2).inputs(select(RPN_ANCHOR_RATIOS.length, 3, mapTable))
 
+    return Graph(data, Array(rpn_class_logits, rpn_class, rpn_bbox))
+
     val rpn_rois = Proposal(6000, 1000).inputs(rpn_class, rpn_bbox, imInfo, anchors)
 
     val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
