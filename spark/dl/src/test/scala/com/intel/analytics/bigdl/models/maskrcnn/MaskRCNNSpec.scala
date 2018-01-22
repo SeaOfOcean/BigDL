@@ -182,6 +182,51 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
   }
 
 
+  "compare rpn" should "work" in {
+    val input = Tensor[Float](1, 256, 50, 50).fill(1)
+
+    val model = MaskRCNN.buildRpnModel(2, 3, 256)
+
+    loadWeights(model, "/home/jxy/data/maskrcnn/weights6/")
+
+    val out = model.forward(input).toTable
+//    middleRoot = "/home/jxy/data/maskrcnn/weights3/C1"
+//    val expected = loadFeatures("C1")
+//    toHWC(out[Tensor[Float]](1)).contiguous().map(expected, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5); a
+//    })
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_class_logits"
+    var expected2 = loadFeatures("rpn_class_logits")
+    var outout = out[Tensor[Float]](1)
+    outout.map(expected2, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+
+//    middleRoot = "/home/jxy/data/maskrcnn/weights5/p3"
+//    expected2 = loadFeatures("p3")
+//    outout = toHWC(out[Tensor[Float]](2)).contiguous()
+//    outout.map(expected2, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5); a
+//    })
+//
+//
+//    middleRoot = "/home/jxy/data/maskrcnn/weights5/p4"
+//    expected2 = loadFeatures("p4")
+//    outout = toHWC(out[Tensor[Float]](3)).contiguous()
+//    outout.map(expected2, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5); a
+//    })
+//
+//    middleRoot = "/home/jxy/data/maskrcnn/weights5/p5"
+//    expected2 = loadFeatures("p5")
+//    outout = toHWC(out[Tensor[Float]](4)).contiguous()
+//    outout.map(expected2, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5); a
+//    })
+
+  }
+
   "compare convblock" should "work" in {
     val input = Tensor[Float](1, 3, 128, 128).fill(1)
 
@@ -247,10 +292,18 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     val out = model.forward(input)
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
     var expected = loadFeatures("rpn_class_logits")
-    toHWC(out.toTable[Tensor[Float]](1)).contiguous().map(expected, (a, b) => {
+
+    println(out.toTable[Tensor[Float]](1).size().mkString("x"))
+    println(out.toTable[Tensor[Float]](2).size().mkString("x"))
+    println(out.toTable[Tensor[Float]](3).size().mkString("x"))
+    out.toTable[Tensor[Float]](1).map(expected, (a, b) => {
       assert(Math.abs(a - b) < 1e-5);
       a
     })
+//    toHWC(out.toTable[Tensor[Float]](1)).contiguous().map(expected, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5);
+//      a
+//    })
 //    middleRoot = "/home/jxy/data/maskrcnn/weights2/C2"
 //    expected = loadFeatures("C2")
 //    toHWC(out.toTable[Tensor[Float]](2)).contiguous().map(expected, (a, b) => {
