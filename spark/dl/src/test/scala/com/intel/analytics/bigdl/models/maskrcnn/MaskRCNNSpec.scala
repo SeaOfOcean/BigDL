@@ -183,7 +183,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 
 
   "compare rpn" should "work" in {
-    val input = Tensor[Float](1, 256, 50, 50).fill(1)
+    val input = Tensor[Float](1, 256, 5, 5).fill(1)
 
     val model = MaskRCNN.buildRpnModel(2, 3, 256)
 
@@ -195,10 +195,23 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 //    toHWC(out[Tensor[Float]](1)).contiguous().map(expected, (a, b) => {
 //      assert(Math.abs(a - b) < 1e-5); a
 //    })
-
     middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_class_logits"
     var expected2 = loadFeatures("rpn_class_logits")
     var outout = out[Tensor[Float]](1)
+    outout.map(expected2, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_probs"
+    expected2 = loadFeatures("rpn_probs")
+    outout = out[Tensor[Float]](2)
+    outout.map(expected2, (a, b) => {
+      assert(Math.abs(a - b) < 1e-5); a
+    })
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_bbox"
+    expected2 = loadFeatures("rpn_bbox")
+    outout = out[Tensor[Float]](3)
     outout.map(expected2, (a, b) => {
       assert(Math.abs(a - b) < 1e-5); a
     })

@@ -171,19 +171,24 @@ object MaskRCNN {
    */
   def buildRpnModel(anchorStride: Int, anchorsPerLocation: Int, depth: Int): Module[Float] = {
     val featureMap = Input()
-    val shared = SpatialConvolution(256, 512, 3, 3, anchorStride, anchorStride)
+    var shared = SpatialConvolution(256, 512, 3, 3,
+      anchorStride, anchorStride, -1, -1)
       .setName("rpn_conv_shared").inputs(featureMap)
+    shared = ReLU(true).inputs(shared)
     // Anchor Score. [batch, height, width, anchors per location * 2].
     var x = SpatialConvolution(512, 2 * anchorsPerLocation, 1, 1).setName("rpn_class_raw")
       .inputs(shared)
+    x = Transpose(Array((2, 3), (3, 4))).inputs(x)
     // Reshape to [batch, anchors, 2]
     val rpnClassLogits = InferReshape(Array(0, -1, 2)).inputs(x)
+
     // Softmax on last dimension of BG/FG.
-    val rpnProbs = SoftMax().setName("rpn_class_xxx").inputs(rpnClassLogits)
+    val rpnProbs = TimeDistributed(SoftMax()).setName("rpn_class_xxx").inputs(rpnClassLogits)
     // Bounding box refinement. [batch, H, W, anchors per location, depth]
     // where depth is [x, y, log(w), log(h)]
     x = SpatialConvolution(512, anchorsPerLocation * 4, 1, 1).setName("rpn_bbox_pred")
       .inputs(shared)
+    x = Transpose(Array((2, 3), (3, 4))).inputs(x)
     // Reshape to [batch, anchors, 4]
     val rpnBbox = InferReshape(Array(0, -1, 4)).inputs(x)
 
