@@ -183,38 +183,35 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 
 
   "compare rpn" should "work" in {
-    val input = Tensor[Float](1, 256, 5, 5).fill(1)
+    val size = 16
+    val input = Tensor[Float](1, 256, size, size).fill(1)
 
-    val model = MaskRCNN.buildRpnModel(2, 3, 256)
+    val model = MaskRCNN.buildRpnModel(1, 3, 256)
 
-    loadWeights(model, "/home/jxy/data/maskrcnn/weights6/")
+//    loadWeights(model, "/home/jxy/data/maskrcnn/weights6/")
 
     val out = model.forward(input).toTable
-//    middleRoot = "/home/jxy/data/maskrcnn/weights3/C1"
-//    val expected = loadFeatures("C1")
-//    toHWC(out[Tensor[Float]](1)).contiguous().map(expected, (a, b) => {
+//    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_class_logits"
+//    var expected2 = loadFeatures("rpn_class_logits")
+    var output = out[Tensor[Float]](1)
+    println(output.size().mkString("x"))
+//    outout.map(expected2, (a, b) => {
 //      assert(Math.abs(a - b) < 1e-5); a
 //    })
-    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_class_logits"
-    var expected2 = loadFeatures("rpn_class_logits")
-    var outout = out[Tensor[Float]](1)
-    outout.map(expected2, (a, b) => {
-      assert(Math.abs(a - b) < 1e-5); a
-    })
-
-    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_probs"
-    expected2 = loadFeatures("rpn_probs")
-    outout = out[Tensor[Float]](2)
-    outout.map(expected2, (a, b) => {
-      assert(Math.abs(a - b) < 1e-5); a
-    })
-
-    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_bbox"
-    expected2 = loadFeatures("rpn_bbox")
-    outout = out[Tensor[Float]](3)
-    outout.map(expected2, (a, b) => {
-      assert(Math.abs(a - b) < 1e-5); a
-    })
+//
+//    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_probs"
+//    expected2 = loadFeatures("rpn_probs")
+//    outout = out[Tensor[Float]](2)
+//    outout.map(expected2, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5); a
+//    })
+//
+//    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_bbox"
+//    expected2 = loadFeatures("rpn_bbox")
+//    outout = out[Tensor[Float]](3)
+//    outout.map(expected2, (a, b) => {
+//      assert(Math.abs(a - b) < 1e-5); a
+//    })
 
 //    middleRoot = "/home/jxy/data/maskrcnn/weights5/p3"
 //    expected2 = loadFeatures("p3")

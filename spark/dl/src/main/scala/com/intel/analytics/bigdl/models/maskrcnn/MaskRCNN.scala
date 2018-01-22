@@ -251,9 +251,9 @@ object MaskRCNN {
     // Convert from list of lists of level outputs to list of lists
     // of outputs across levels.
     // e.g. [[a1, b1, c1], [a2, b2, c2]] => [[a1, a2], [b1, b2], [c1, c2]]
-    val rpn_class_logits = JoinTable(2, 3).inputs(select(RPN_ANCHOR_RATIOS.length, 1, mapTable))
-    val rpn_class = JoinTable(2, 3).inputs(select(RPN_ANCHOR_RATIOS.length, 2, mapTable))
-    val rpn_bbox = JoinTable(2, 3).inputs(select(RPN_ANCHOR_RATIOS.length, 3, mapTable))
+    val rpn_class_logits = JoinTable(2, 3).inputs(select(rpn_feature_maps.length, 1, mapTable))
+    val rpn_class = JoinTable(2, 3).inputs(select(rpn_feature_maps.length, 2, mapTable))
+    val rpn_bbox = JoinTable(2, 3).inputs(select(rpn_feature_maps.length, 3, mapTable))
 
     return Graph(data, Array(rpn_class_logits, rpn_class, rpn_bbox))
 
