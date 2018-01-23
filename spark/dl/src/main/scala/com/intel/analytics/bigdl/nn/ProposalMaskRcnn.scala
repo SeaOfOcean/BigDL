@@ -19,19 +19,111 @@ package com.intel.analytics.bigdl.nn
 import com.intel.analytics.bigdl.nn.abstractnn.AbstractModule
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
+import com.intel.analytics.bigdl.transform.vision.image.util.BboxUtil
 import com.intel.analytics.bigdl.utils.Table
 
-class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int, val ratios: Array[Float],
-  val scales: Array[Int], steps: Array[Int],
+class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
   rpnPreNmsTopNTrain: Int, rpnPostNmsTopNTrain: Int)(
   implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
 
+  @transient private var nms: Nms = _
+  @transient private var bboxDeltas: Tensor[Float] = _
+  @transient private var scores: Tensor[Float] = _
+  @transient private var sortedScores: Tensor[Float] = _
+  @transient private var sortedInds: Tensor[Float] = _
+  @transient private var filteredDetas: Tensor[Float] = _
+  @transient private var filteredAnchors: Tensor[Float] = _
+  @transient private var keep: Array[Int] = _
+  // Proposal height and width both need to be greater than minSize (at orig image scale)
+  private val minSize = 16
+
+  private def init(): Unit = {
+    if (nms == null) {
+      nms = new Nms()
+      bboxDeltas = Tensor[Float]
+      scores = Tensor[Float]
+      sortedScores = Tensor[Float]
+      sortedInds = Tensor[Float]
+      filteredDetas = Tensor[Float]
+      filteredAnchors = Tensor[Float]
+    }
+  }
 
   override def updateOutput(input: Table): Tensor[Float] = {
-    val scores = input(1)
-    val anchors = input[Tensor[Float]](3)
-    null
+    val inputScore = input[Tensor[Float]](1)
+    val rpnBboxes = input[Tensor[Float]](2)
+    val imInfo = input[Tensor[Float]](3)
+    require(inputScore.size(1) == 1 && imInfo.size(1) == 1, "currently only support single batch")
+    init()
+    require(rpnBboxes.dim() == 3)
+    // todo: not sure whether it is needed
+    bboxDeltas.resizeAs(rpnBboxes).copy(rpnBboxes)
+    // remove the batch dim
+    bboxDeltas.resize(bboxDeltas.size(2), bboxDeltas.size(3))
+    bboxDeltas.narrow(2, 1, 2).mul(0.1f)
+    bboxDeltas.narrow(2, 3, 2).mul(0.2f)
 
+    val fgScores = inputScore.narrow(3, 1, 1)
+    scores.resizeAs(fgScores).copy(fgScores)
+    scores.resize(inputScore.size(2))
+
+    val priorBoxes = input[Tensor[Float]](4)
+    val anchors = priorBoxes.reshape(Array(priorBoxes.size(2), priorBoxes.size(3)))
+    // Convert anchors into proposals via bbox transformations
+//    val proposals = BboxUtil.bboxTransformInv(anchors, bboxDeltas)
+
+    val preNmsTopN = if (isTraining()) rpnPreNmsTopNTrain else preNmsTopNTest
+    val postNmsTopN = if (isTraining()) rpnPostNmsTopNTrain else postNmsTopNTest
+
+    // Improve performance by trimming to top anchors by score
+    // and doing the rest on the smaller subset.
+    val preNmsLimit = Math.min(preNmsTopN, anchors.size(1))
+    val topAnchors = scores.topk(preNmsLimit, dim = 1, increase = false,
+      result = sortedScores, indices = sortedInds)
+
+    BboxUtil.selectTensor(bboxDeltas, sortedInds.storage().array().map(_.toInt),
+      1, out = filteredDetas)
+
+    BboxUtil.selectTensor(anchors, sortedInds.storage().array().map(_.toInt),
+      1, out = filteredAnchors)
+
+    // Apply deltas to anchors to get refined anchors.
+    // [batch, N, (y1, x1, y2, x2)]
+    // config it
+    val height = ProposalMaskRcnn.height
+    val width = ProposalMaskRcnn.width
+    val boxes = BboxUtil.bboxTransformInv(filteredAnchors, filteredDetas)
+    // Clip to image boundaries. [batch, N, (y1, x1, y2, x2)]
+    BboxUtil.clipBoxes(boxes, height, width)
+
+    // Normalize dimensions to range of 0 to 1.
+    BboxUtil.scaleBBox(boxes, 1 / height, 1 / width)
+
+    if (keep == null || keep.length < sortedInds.nElement()) {
+      keep = new Array[Int](sortedInds.nElement())
+    }
+    // apply nms (e.g. threshold = 0.7)
+    // take after_nms_topN (e.g. 300)
+    // return the top proposals (-> RoIs topN
+    var keepN = nms.nmsFast(sortedScores, boxes, 0.7f, 0, keep, postNmsTopN)
+    if (postNmsTopN > 0) {
+      keepN = Math.min(keepN, postNmsTopN)
+    }
+
+    var i = 1
+    var j = 2
+
+    output.resize(keepN, boxes.size(2) + 1)
+    while (i <= keepN) {
+      output.setValue(i, 1, 0)
+      j = 2
+      while (j <= output.size(2)) {
+        output.setValue(i, j, boxes.valueAt(keep(i - 1), j - 1))
+        j += 1
+      }
+      i += 1
+    }
+    output
   }
 
 
@@ -43,11 +135,11 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int, val ratios: Ar
 
 object ProposalMaskRcnn {
   def apply(preNmsTopNTest: Int, postNmsTopNTest: Int,
-    ratios: Array[Float],
-    scales: Array[Int],
-    steps: Array[Int],
     rpnPreNmsTopNTrain: Int = 12000, rpnPostNmsTopNTrain: Int = 2000)(
     implicit ev: TensorNumeric[Float]): ProposalMaskRcnn =
-    new ProposalMaskRcnn(preNmsTopNTest, postNmsTopNTest, ratios, scales, steps,
+    new ProposalMaskRcnn(preNmsTopNTest, postNmsTopNTest,
       rpnPreNmsTopNTrain, rpnPostNmsTopNTrain)
+
+  val height = 1024f
+  val width = 1024f
 }

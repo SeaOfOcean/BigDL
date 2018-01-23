@@ -477,4 +477,52 @@ object BboxUtil {
     }
     indices
   }
+
+  def selectTensor(matrix: Tensor[Float], indices: Array[Int], dim: Int, indiceLen: Int = -1,
+    out: Tensor[Float] = null): Tensor[Float] = {
+    assert(dim == 1 || dim == 2)
+    var i = 1
+    val n = if (indiceLen == -1) indices.length else indiceLen
+    if (matrix.nDimension() == 1) {
+      val res = if (out == null) {
+        Tensor[Float](n)
+      } else {
+        out.resize(n)
+      }
+      while (i <= n) {
+        res.update(i, matrix.valueAt(indices(i - 1)))
+        i += 1
+      }
+      return res
+    }
+    // select rows
+    if (dim == 1) {
+      val res = if (out == null) {
+        Tensor[Float](n, matrix.size(2))
+      } else {
+        out.resize(n, matrix.size(2))
+      }
+      while (i <= n) {
+        res.update(i, matrix(indices(i - 1)))
+        i += 1
+      }
+      res
+    } else {
+      val res = if (out == null) {
+        Tensor[Float](matrix.size(1), n)
+      } else {
+        out.resize(matrix.size(1), n)
+      }
+      while (i <= n) {
+        var rid = 1
+        val value = matrix.select(2, indices(i - 1))
+        while (rid <= res.size(1)) {
+          res.setValue(rid, i, value.valueAt(rid))
+          rid += 1
+        }
+        i += 1
+      }
+      res
+    }
+  }
 }
