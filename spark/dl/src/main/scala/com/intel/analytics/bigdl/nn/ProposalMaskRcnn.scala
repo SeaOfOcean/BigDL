@@ -58,6 +58,13 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
     require(rpnBboxes.dim() == 3)
     // todo: not sure whether it is needed
     bboxDeltas.resizeAs(rpnBboxes).copy(rpnBboxes)
+
+    // do it due to pretrained order is y1, x1, y2, x2, change to x1, y1, x2, y2
+    bboxDeltas.narrow(3, 1, 1).copy(rpnBboxes.narrow(3, 2, 1))
+    bboxDeltas.narrow(3, 2, 1).copy(rpnBboxes.narrow(3, 1, 1))
+    bboxDeltas.narrow(3, 3, 1).copy(rpnBboxes.narrow(3, 4, 1))
+    bboxDeltas.narrow(3, 4, 1).copy(rpnBboxes.narrow(3, 3, 1))
+
     // remove the batch dim
     bboxDeltas.resize(bboxDeltas.size(2), bboxDeltas.size(3))
     bboxDeltas.narrow(2, 1, 2).mul(0.1f)
@@ -69,8 +76,6 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
 
     val priorBoxes = input[Tensor[Float]](4)
     val anchors = priorBoxes.reshape(Array(priorBoxes.size(2), priorBoxes.size(3)))
-    // Convert anchors into proposals via bbox transformations
-//    val proposals = BboxUtil.bboxTransformInv(anchors, bboxDeltas)
 
     val preNmsTopN = if (isTraining()) rpnPreNmsTopNTrain else preNmsTopNTest
     val postNmsTopN = if (isTraining()) rpnPostNmsTopNTrain else postNmsTopNTest
@@ -92,7 +97,8 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
     // config it
     val height = ProposalMaskRcnn.height
     val width = ProposalMaskRcnn.width
-    val boxes = BboxUtil.bboxTransformInv(filteredAnchors, filteredDetas)
+    // Convert anchors into proposals via bbox transformations
+    val boxes = BboxUtil.bboxTransformInv(filteredAnchors, filteredDetas, true)
     // Clip to image boundaries. [batch, N, (y1, x1, y2, x2)]
     BboxUtil.clipBoxes(boxes, height, width)
 
@@ -105,7 +111,7 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
     // apply nms (e.g. threshold = 0.7)
     // take after_nms_topN (e.g. 300)
     // return the top proposals (-> RoIs topN
-    var keepN = nms.nmsFast(sortedScores, boxes, 0.7f, 0, keep, postNmsTopN)
+    var keepN = nms.nmsFast(sortedScores, boxes, 0.7f, 0, keep)
     if (postNmsTopN > 0) {
       keepN = Math.min(keepN, postNmsTopN)
     }

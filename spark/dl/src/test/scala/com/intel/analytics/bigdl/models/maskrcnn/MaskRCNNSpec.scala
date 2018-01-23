@@ -513,12 +513,12 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     val rpn_class = loadFeatures("rpn_class")
 
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_bbox"
-    val rpn_bbox1 = loadFeatures("rpn_bbox")
-    val rpn_bbox = rpn_bbox1.clone()
-    rpn_bbox.narrow(3, 1, 1).copy(rpn_bbox1.narrow(3, 2, 1))
-    rpn_bbox.narrow(3, 2, 1).copy(rpn_bbox1.narrow(3, 1, 1))
-    rpn_bbox.narrow(3, 3, 1).copy(rpn_bbox1.narrow(3, 4, 1))
-    rpn_bbox.narrow(3, 4, 1).copy(rpn_bbox1.narrow(3, 3, 1))
+    val rpn_bbox = loadFeatures("rpn_bbox")
+//    val rpn_bbox = rpn_bbox1.clone()
+//    rpn_bbox.narrow(3, 1, 1).copy(rpn_bbox1.narrow(3, 2, 1))
+//    rpn_bbox.narrow(3, 2, 1).copy(rpn_bbox1.narrow(3, 1, 1))
+//    rpn_bbox.narrow(3, 3, 1).copy(rpn_bbox1.narrow(3, 4, 1))
+//    rpn_bbox.narrow(3, 4, 1).copy(rpn_bbox1.narrow(3, 3, 1))
 
     middleRoot = "/home/jxy/data/maskrcnn/weights/"
     val imInfo = loadFeatures("image_metas")
