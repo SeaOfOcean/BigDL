@@ -63,6 +63,9 @@ class LocalPredictorSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val detection = model.predictImage(imageFrame).toLocal()
     val feature = detection.array.head
     println(feature(ImageFeature.predict))
+    detection.array.foreach(i => {
+      println(i.predict())
+    })
 
     val imageFeatures = detection.array
     val prob = imageFeatures.map(x => x[Tensor[Float]](ImageFeature.predict))
