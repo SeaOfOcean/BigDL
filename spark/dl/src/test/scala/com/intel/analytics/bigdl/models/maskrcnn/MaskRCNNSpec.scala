@@ -468,8 +468,27 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     val reshape = InferReshape(Array(1, -1, 4)).inputs(anchors)
     val model = Graph(rpn_feature_maps, reshape)
 
-    val input = T(Tensor(1, 256, 256, 256), Tensor(1, 256, 128, 128),
-      Tensor(1, 256, 64, 64), Tensor(1, 256, 32, 32), Tensor(1, 256, 16, 16))
+    val input = T(Tensor(1, 256, 16, 16))
+
+
+//    val input = T(Tensor(1, 256, 256, 256), Tensor(1, 256, 128, 128),
+//      Tensor(1, 256, 64, 64), Tensor(1, 256, 32, 32), Tensor(1, 256, 16, 16))
+
+    println(model.forward(input))
+  }
+
+
+  "generate anchors1" should "work" in {
+    val rpn_feature_maps = Input()
+    val priorBoxes = PriorBox[Float](Array(MaskRCNN.RPN_ANCHOR_SCALES.last),
+        _aspectRatios = MaskRCNN.RPN_ANCHOR_RATIOS,
+        imgSize = 1, step = MaskRCNN.BACKBONE_STRIDES.last, isFlip = false, offset = 0,
+        hasVariances = false)
+        .inputs(rpn_feature_maps)
+    val reshape = InferReshape(Array(1, -1, 4)).inputs(priorBoxes)
+    val model = Graph(rpn_feature_maps, reshape)
+
+    val input = Tensor(1, 256, 16, 16)
 
     println(model.forward(input))
   }

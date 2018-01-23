@@ -237,11 +237,13 @@ object MaskRCNN {
 
     val priorBoxes = rpn_feature_maps.indices.map(i => {
       PriorBox(Array(RPN_ANCHOR_SCALES(i)), _aspectRatios = RPN_ANCHOR_RATIOS,
-        imgSize = 1, step = BACKBONE_STRIDES(i), isFlip = false, offset = 0)
+        imgSize = 1, step = BACKBONE_STRIDES(i), isFlip = false, offset = 0,
+        hasVariances = false)
         .inputs(rpn_feature_maps(i))
     }).toArray
 
-    val anchors = JoinTable(2, 3).inputs(priorBoxes)
+    var anchors = JoinTable(3, 3).inputs(priorBoxes)
+    anchors = InferReshape(Array(1, -1, 4)).inputs(anchors)
 
     // RPN Model
     val rpn = buildRpnModel(RPN_ANCHOR_STRIDE, RPN_ANCHOR_RATIOS.length, 256)
