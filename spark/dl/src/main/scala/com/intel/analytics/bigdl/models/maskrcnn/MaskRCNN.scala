@@ -265,7 +265,7 @@ object MaskRCNN {
       .inputs(rpn_class, rpn_bbox, imInfo, anchors)
 
 
-    return Graph(Array(data, imInfo), Array(rpn_rois, rpn_class, rpn_bbox)).setName("mask_rcnn")
+//    return Graph(Array(data, imInfo), Array(rpn_rois, rpn_class, rpn_bbox)).setName("mask_rcnn")
 
     val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
       fpnClassifierGraph(rpn_rois, mrcnn_feature_maps, IMAGE_SHAPE, POOL_SIZE, NUM_CLASSES)
@@ -315,14 +315,15 @@ object MaskRCNN {
       .inputs(Array(rois) ++ featureMaps)
     // Two 1024 FC layers (implemented with Conv2D for consistency)
     x = SpatialConvolution(256, 1024, poolSize, poolSize).setName("mrcnn_class_conv1").inputs(x)
-    x = SpatialBatchNormalization(1024).setName("mrcnn_class_bn1").inputs(x)
+    x = SpatialBatchNormalization(1024, eps = 0.001).setName("mrcnn_class_bn1").inputs(x)
     x = ReLU(true).inputs(x)
     x = SpatialConvolution(1024, 1024, 1, 1).setName("mrcnn_class_conv2").inputs(x)
-    x = SpatialBatchNormalization(1024).setName("mrcnn_class_bn2").inputs(x)
+    x = SpatialBatchNormalization(1024, eps = 0.001).setName("mrcnn_class_bn2").inputs(x)
     x = ReLU(true).inputs(x)
     val shared = Squeeze(2).inputs(Squeeze(3).inputs(x))
     // Classifier head
-    val mrcnn_class_logits = Linear(1024, numClasses).setName("mrcnn_class_logits").inputs(shared)
+    val mrcnn_class_logits = TimeDistributed(Linear(1024, numClasses).setName("mrcnn_class_logits"))
+      .inputs(shared)
     val mrcnn_probs = SoftMax().inputs(mrcnn_class_logits)
 
     // BBox head
@@ -364,21 +365,21 @@ object MaskRCNN {
       .inputs(Array(rois) ++ featureMaps)
 
     // Conv layers
-    x = SpatialConvolution(256, 1024, 3, 3).setName("mrcnn_mask_conv1").inputs(x)
-    x = SpatialBatchNormalization(256).setName("mrcnn_mask_bn1").inputs(x)
+    x = SpatialConvolution(256, 256, 3, 3).setName("mrcnn_mask_conv1").inputs(x)
+    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn1").inputs(x)
     x = ReLU(true).inputs(x)
 
     x = SpatialConvolution(256, 256, 3, 3).setName("mrcnn_mask_conv2").inputs(x)
-    x = SpatialBatchNormalization(256).setName("mrcnn_mask_bn2").inputs(x)
+    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn2").inputs(x)
     x = ReLU(true).inputs(x)
 
 
     x = SpatialConvolution(256, 256, 3, 3).setName("mrcnn_mask_conv3").inputs(x)
-    x = SpatialBatchNormalization(256).setName("mrcnn_mask_bn3").inputs(x)
+    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn3").inputs(x)
     x = ReLU(true).inputs(x)
 
     x = SpatialConvolution(256, 256, 3, 3).setName("mrcnn_mask_conv4").inputs(x)
-    x = SpatialBatchNormalization(256).setName("mrcnn_mask_bn4").inputs(x)
+    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn4").inputs(x)
     x = ReLU(true).inputs(x)
 
     // TODO: not sure
