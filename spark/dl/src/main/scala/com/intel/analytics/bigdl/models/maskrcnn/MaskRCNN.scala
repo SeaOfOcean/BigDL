@@ -282,7 +282,7 @@ object MaskRCNN {
       rpn_rois, rpn_class, rpn_bbox)).setName("mask_rcnn")
   }
 
-  private def select(total: Int, dim: Int, input: ModuleNode[Float]): Array[ModuleNode[Float]] = {
+  def select(total: Int, dim: Int, input: ModuleNode[Float]): Array[ModuleNode[Float]] = {
     require(dim >= 1 && dim <= 3)
     (1 to total).map(i => {
       val level = SelectTable(i).inputs(input)

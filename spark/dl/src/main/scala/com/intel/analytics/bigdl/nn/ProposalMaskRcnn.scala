@@ -119,16 +119,17 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
     var i = 1
     var j = 2
 
-    output.resize(keepN, boxes.size(2) + 1)
+    output.resize(keepN, boxes.size(2))
     while (i <= keepN) {
       output.setValue(i, 1, 0)
-      j = 2
+      j = 1
       while (j <= output.size(2)) {
-        output.setValue(i, j, boxes.valueAt(keep(i - 1), j - 1))
+        output.setValue(i, j, boxes.valueAt(keep(i - 1), j))
         j += 1
       }
       i += 1
     }
+    output.resize(1, output.size(1), output.size(2))
     output
   }
 

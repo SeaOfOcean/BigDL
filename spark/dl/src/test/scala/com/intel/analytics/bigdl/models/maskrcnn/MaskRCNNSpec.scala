@@ -218,32 +218,56 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 
 
   "compare rpn" should "work" in {
-    middleRoot = "/home/jxy/data/maskrcnn/weights/p2"
-    val input = loadFeatures("p2").transpose(2, 4).transpose(3, 4).contiguous()
-    val size = 256
+    val inputs = (2 to 6).map(i => {
+      middleRoot = s"/home/jxy/data/maskrcnn/weights/p$i"
+      loadFeatures(s"p$i").transpose(2, 4).transpose(3, 4).contiguous()
+    }).toArray
+
+    val data = T.array(inputs)
+
+    println("load data done ", data.length())
 //    val input = Tensor[Float](1, 256, size, size).fill(1)
 
-    val model = MaskRCNN.buildRpnModel(1, 3, 256)
+//    val model = MaskRCNN.buildRpnModel(1, 3, 256)
+
+    val rpn_feature_maps = (1 to 5).map(i => Input()).toArray
+
+    // RPN Model
+    val rpn = MaskRCNN.buildRpnModel(1, 3, 256)
+    val mapTable = MapTable(rpn).inputs(rpn_feature_maps)
+
+    // Concatenate layer outputs
+    // Convert from list of lists of level outputs to list of lists
+    // of outputs across levels.
+    // e.g. [[a1, b1, c1], [a2, b2, c2]] => [[a1, a2], [b1, b2], [c1, c2]]
+    val rpn_class_logits = JoinTable(2, 3).setName("rpn_class_logits")
+      .inputs(MaskRCNN.select(rpn_feature_maps.length, 1, mapTable))
+    val rpn_class = JoinTable(2, 3).setName("rpn_class")
+      .inputs(MaskRCNN.select(rpn_feature_maps.length, 2, mapTable))
+    val rpn_bbox = JoinTable(2, 3).setName("rpn_bbox")
+      .inputs(MaskRCNN.select(rpn_feature_maps.length, 3, mapTable))
+
+    val model = Graph(rpn_feature_maps, Array(rpn_class_logits, rpn_class, rpn_bbox))
 
     loadWeights(model, "/home/jxy/data/maskrcnn/weights/")
 
-    val out = model.forward(input).toTable
-    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_class_logits"
+    val out = model.forward(data).toTable
+    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
     var expected2 = loadFeatures("rpn_class_logits")
     var output = out[Tensor[Float]](1)
     println(output.size().mkString("x"))
     output.map(expected2, (a, b) => {
-      assert(Math.abs(a - b) < 1e-5);
+      assert(Math.abs(a - b) < 1e-4);
       a
     })
-    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_probs"
+    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_probs"
     expected2 = loadFeatures("rpn_probs")
     output = out[Tensor[Float]](2)
     output.map(expected2, (a, b) => {
       assert(Math.abs(a - b) < 1e-5);
       a
     })
-    middleRoot = "/home/jxy/data/maskrcnn/weights6/rpn_bbox"
+    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_bbox"
     expected2 = loadFeatures("rpn_bbox")
     output = out[Tensor[Float]](3)
     output.map(expected2, (a, b) => {
@@ -322,10 +346,10 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     val input = loadFeatures("data").transpose(2, 4).transpose(3, 4).contiguous()
     val imageMeta = loadFeatures("image_metas")
     var model = MaskRCNN().evaluate()
-//    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
-//    model.loadModelWeights(saved)
-    loadWeights(model)
-    model.save("/tmp/mask-rcnn.model", true)
+    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
+    model.loadModelWeights(saved)
+//    loadWeights(model)
+//    model.save("/tmp/mask-rcnn.model", true)
 //    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     println("load model done ...........")
     val out = model.forward(T(input, imageMeta))
