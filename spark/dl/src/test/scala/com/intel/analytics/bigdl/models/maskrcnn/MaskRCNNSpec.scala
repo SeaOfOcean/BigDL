@@ -260,18 +260,18 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
       assert(Math.abs(a - b) < 1e-4);
       a
     })
-    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_probs"
-    expected2 = loadFeatures("rpn_probs")
+    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class"
+    expected2 = loadFeatures("rpn_class")
     output = out[Tensor[Float]](2)
     output.map(expected2, (a, b) => {
-      assert(Math.abs(a - b) < 1e-5);
+      assert(Math.abs(a - b) < 1e-4);
       a
     })
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_bbox"
     expected2 = loadFeatures("rpn_bbox")
     output = out[Tensor[Float]](3)
     output.map(expected2, (a, b) => {
-      assert(Math.abs(a - b) < 1e-5);
+      assert(Math.abs(a - b) < 1e-4);
       a
     })
 
@@ -343,7 +343,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
   }
 
   "MaskRCNN forward" should "work" in {
-    val input = loadFeatures("data").transpose(2, 4).transpose(3, 4).contiguous()
+    val input = loadFeatures("input").transpose(2, 4).transpose(3, 4).contiguous()
     val imageMeta = loadFeatures("image_metas")
     var model = MaskRCNN().evaluate()
     val saved = Module.load[Float]("/tmp/mask-rcnn.model")
@@ -373,11 +373,11 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 //    compare("p5", model("fpn_p5").get, 1e-3, "weights")
 //    compare("p6", model("fpn_p6").get, 1e-3, "weights")
 
-//    compare("rpn_class_logits", model("rpn_class_logits").get, 1e-3, "weights")
-//    compare("rpn_bbox", model("rpn_bbox").get, 1e-3, "weights")
-//    compare("rpn_class", model("rpn_class").get, 1e-3, "weights")
+    compare("rpn_class_logits", model("rpn_class_logits").get, 1e-3, "weights")
+    compare("rpn_bbox", model("rpn_bbox").get, 1e-3, "weights")
+    compare("rpn_class", model("rpn_class").get, 1e-3, "weights")
 
-    println(model("ROIS").get.output)
+//    println(model("ROIS").get.output)
 //
 //    def compare(name: String): Unit = {
 //      middleRoot = s"/home/jxy/data/maskrcnn/weights/$name"
