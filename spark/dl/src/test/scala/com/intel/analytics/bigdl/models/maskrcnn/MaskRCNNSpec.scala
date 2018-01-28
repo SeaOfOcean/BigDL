@@ -417,7 +417,26 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     out.map(expected, (a, b) => {
       if (Math.abs(a - b) > prec) {
         println(a, b, Math.abs(a - b))
-        return false
+//        return false
+      }
+      a
+//      assert(Math.abs(a - b) < prec); a
+    })
+  }
+
+  def compare3(expectedname: String, output: Tensor[Float], prec: Double, middle: String): Unit = {
+    println(s"compare .............$expectedname")
+    middleRoot = s"${middle}/$expectedname"
+    val expected = loadFeatures(s"${expectedname}")
+    val out = if (output.dim() == 4) {
+      toHWC(output).contiguous()
+    } else {
+      output.contiguous()
+    }
+    out.map(expected, (a, b) => {
+      if (Math.abs(a - b) > prec) {
+        println(a, b, Math.abs(a - b))
+//        return false
       }
       a
 //      assert(Math.abs(a - b) < prec); a
@@ -710,5 +729,15 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     layer.forward(input)
     println(layer.output)
     compare2("roialign", layer.output, 1e-5, "weights")
+  }
+
+  "compare deconv" should "work" in {
+    val layer = SpatialFullConvolution(256, 256, 2, 2, 2, 2).setName("jxy2")
+    loadWeights(layer, "/tmp/Conv2DTranspose_p/")
+    middleRoot = "/tmp/Conv2DTranspose_p/data/"
+    val input = toCHW(loadFeatures("data", middleRoot))
+    layer.forward(input)
+    println(toHWC(layer.output))
+    compare3("out", layer.output, 1e-5, "/tmp/Conv2DTranspose_p/")
   }
 }
