@@ -21,6 +21,7 @@ import com.intel.analytics.bigdl.models.resnet.{Convolution, ResNet}
 import com.intel.analytics.bigdl.models.resnet.ResNet.{DatasetType, ShortcutType}
 import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
+import com.intel.analytics.bigdl.nn.ops.Conv2DTranspose
 import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 
@@ -270,7 +271,7 @@ object MaskRCNN {
     val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
       fpnClassifierGraph(rpn_rois, mrcnn_feature_maps, IMAGE_SHAPE, POOL_SIZE, NUM_CLASSES)
 
-    val detections = DetectionOutputFrcnn().inputs(rpn_rois, mrcnn_class, mrcnn_bbox, imInfo)
+    val detections = DetectionOutputMRcnn().inputs(rpn_rois, mrcnn_class, mrcnn_bbox, imInfo)
     // TODO: fix it
     val detection_boxes = detections
     val mrcnn_mask = buildFpnMaskGraph(detection_boxes, mrcnn_feature_maps,
@@ -335,6 +336,7 @@ object MaskRCNN {
     (mrcnn_class_logits, mrcnn_probs, mrcnn_bbox)
   }
 
+  // todo: remove
   def fpnClassifierGraph2(roisAlign: ModuleNode[Float],
     imageShape: Array[Int], poolSize: Int, numClasses: Int)
   : (ModuleNode[Float], ModuleNode[Float], ModuleNode[Float]) = {
@@ -396,28 +398,77 @@ object MaskRCNN {
       .inputs(Array(rois) ++ featureMaps)
 
     // Conv layers
-    x = SpatialConvolution(256, 256, 3, 3).setName("mrcnn_mask_conv1").inputs(x)
+    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
+      .setName("mrcnn_mask_conv1").inputs(x)
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn1").inputs(x)
     x = ReLU(true).inputs(x)
 
-    x = SpatialConvolution(256, 256, 3, 3).setName("mrcnn_mask_conv2").inputs(x)
+    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
+      .setName("mrcnn_mask_conv2").inputs(x)
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn2").inputs(x)
     x = ReLU(true).inputs(x)
 
 
-    x = SpatialConvolution(256, 256, 3, 3).setName("mrcnn_mask_conv3").inputs(x)
+    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
+      .setName("mrcnn_mask_conv3").inputs(x)
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn3").inputs(x)
     x = ReLU(true).inputs(x)
 
-    x = SpatialConvolution(256, 256, 3, 3).setName("mrcnn_mask_conv4").inputs(x)
+    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
+      .setName("mrcnn_mask_conv4").inputs(x)
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn4").inputs(x)
     x = ReLU(true).inputs(x)
 
     // TODO: not sure
 //    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"),
 //      name="mrcnn_mask_deconv")(x)
+    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).inputs(x)
+    x = ReLU(true).inputs(x)
+    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).inputs(x)
+    x = Sigmoid().setName("mrcnn_mask").inputs(x)
+
 //    x = KL.TimeDistributed(KL.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid"),
 //      name="mrcnn_mask")(x)
+    x
+  }
+
+  def buildFpnMaskGraph2(rois: ModuleNode[Float], num_classes: Int): ModuleNode[Float] = {
+
+    // ROI Pooling
+    // Shape: [batch, boxes, pool_height, pool_width, channels]
+//    var x = PyramidROIAlign(poolSize, poolSize,
+//      imgH = imageShape(0), imgW = imageShape(1), imgC = imageShape(2)).setName("roi_align_mask")
+//      .inputs(Array(rois) ++ featureMaps)
+
+    // Conv layers
+    var x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
+      .setName("mrcnn_mask_conv1").inputs(rois)
+    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn1").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
+      .setName("mrcnn_mask_conv2").inputs(x)
+    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn2").inputs(x)
+    x = ReLU(true).inputs(x)
+
+
+    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
+      .setName("mrcnn_mask_conv3").inputs(x)
+    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn3").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
+      .setName("mrcnn_mask_conv4").inputs(x)
+    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn4").inputs(x)
+    x = ReLU(true).inputs(x)
+
+    // TODO: not sure
+//    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"),
+//      name="mrcnn_mask_deconv")(x)
+    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).inputs(x)
+    x = ReLU(true).inputs(x)
+    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).inputs(x)
+    x = Sigmoid().setName("mrcnn_mask").inputs(x)
     x
   }
 
