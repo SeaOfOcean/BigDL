@@ -264,9 +264,8 @@ object MaskRCNN {
       .setName("ROI")
       .inputs(rpn_class, rpn_bbox, imInfo, anchors)
 
-
-    return Graph(Array(data, imInfo), Array(rpn_rois, rpn_class_logits, rpn_class, rpn_bbox))
-      .setName("mask_rcnn")
+//    return Graph(Array(data, imInfo), Array(rpn_rois, rpn_class_logits, rpn_class, rpn_bbox))
+//      .setName("mask_rcnn")
 
     val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
       fpnClassifierGraph(rpn_rois, mrcnn_feature_maps, IMAGE_SHAPE, POOL_SIZE, NUM_CLASSES)
@@ -321,11 +320,42 @@ object MaskRCNN {
     x = SpatialConvolution(1024, 1024, 1, 1).setName("mrcnn_class_conv2").inputs(x)
     x = SpatialBatchNormalization(1024, eps = 0.001).setName("mrcnn_class_bn2").inputs(x)
     x = ReLU(true).inputs(x)
-    val shared = Squeeze(2).inputs(Squeeze(3).inputs(x))
+    val shared = Squeeze(Array(4, 3), batchMode = false).setName("pool_squeeze").inputs(x)
     // Classifier head
-    val mrcnn_class_logits = TimeDistributed(Linear(1024, numClasses).setName("mrcnn_class_logits"))
+    val mrcnn_class_logits = Linear(1024, numClasses).setName("mrcnn_class_logits")
       .inputs(shared)
-    val mrcnn_probs = SoftMax().inputs(mrcnn_class_logits)
+    val mrcnn_probs = SoftMax().setName("mrcnn_class").inputs(mrcnn_class_logits)
+
+
+    // BBox head
+    // [batch, boxes, num_classes * (dy, dx, log(dh), log(dw))]
+    x = Linear(1024, numClasses * 4).setName("mrcnn_bbox_fc").inputs(shared)
+    // Reshape to [batch, boxes, num_classes, (dy, dx, log(dh), log(dw))]
+    val mrcnn_bbox = Reshape(Array(1, numClasses, 4)).setName("mrcnn_bbox").inputs(x)
+    (mrcnn_class_logits, mrcnn_probs, mrcnn_bbox)
+  }
+
+  def fpnClassifierGraph2(roisAlign: ModuleNode[Float],
+    imageShape: Array[Int], poolSize: Int, numClasses: Int)
+  : (ModuleNode[Float], ModuleNode[Float], ModuleNode[Float]) = {
+    // ROI Pooling
+    // Shape: [batch, num_boxes, pool_height, pool_width, channels]
+//    var x = PyramidROIAlign(poolSize, poolSize,
+//      imgH = imageShape(0), imgW = imageShape(1), imgC = imageShape(2))
+//      .inputs(Array(rois) ++ featureMaps)
+    // Two 1024 FC layers (implemented with Conv2D for consistency)
+    var x = SpatialConvolution(256, 1024, poolSize, poolSize).setName("mrcnn_class_conv1")
+      .inputs(roisAlign)
+    x = SpatialBatchNormalization(1024, eps = 0.001).setName("mrcnn_class_bn1").inputs(x)
+    x = ReLU(true).inputs(x)
+    x = SpatialConvolution(1024, 1024, 1, 1).setName("mrcnn_class_conv2").inputs(x)
+    x = SpatialBatchNormalization(1024, eps = 0.001).setName("mrcnn_class_bn2").inputs(x)
+    x = ReLU(true).inputs(x)
+    val shared = Squeeze(Array(4, 3), batchMode = false).setName("pool_squeeze").inputs(x)
+    // Classifier head
+    val mrcnn_class_logits = Linear(1024, numClasses).setName("mrcnn_class_logits")
+      .inputs(shared)
+    val mrcnn_probs = SoftMax().setName("mrcnn_class").inputs(mrcnn_class_logits)
 
     // BBox head
     // [batch, boxes, num_classes * (dy, dx, log(dh), log(dw))]

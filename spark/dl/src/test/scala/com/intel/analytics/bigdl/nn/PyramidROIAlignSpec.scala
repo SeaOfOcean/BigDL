@@ -36,4 +36,8 @@ class PyramidROIAlignSpec extends KerasBaseSpec {
     val layer = new PyramidROIAlign(7, 7, 400, 500, 3)
     layer.forward(input)
   }
+
+  "true data forward" should "work" in {
+
+  }
 }

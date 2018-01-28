@@ -21,6 +21,7 @@ import java.nio.file.Paths
 
 import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.models.resnet.Convolution
+import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
@@ -191,7 +192,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 //    compare("C1", model("pool1").get, 1e-3, "weights")
 //    compare2("c1", out[Tensor[Float]](1), 1e-3, "weights_c1")
     compare2("x1", out[Tensor[Float]](2), 1e-6, "weights_c1")
-    compare2("x2", out[Tensor[Float]](3), 1e-4, "weights_c1")
+    compare2("x2", out[Tensor[Float]](3), 1e-3, "weights_c1")
 //    compare2("relu", out[Tensor[Float]](5), 1e-5, "weights_c1")
 //    compare2("c1", output, 1e-5, "weights_c1")
 //    println(output.size().mkString("x"))
@@ -366,7 +367,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 //    compare("C3", model("res3d_out").get, 1e-3, "weights")
 //    compare("C4", model("res4w_out").get, 1e-3, "weights")
 //    compare("C5", model("res5c_out").get, 1e-3, "weights")
-
+//
 //    compare("p2", model("fpn_p2").get, 1e-3, "weights")
 //    compare("p3", model("fpn_p3").get, 1e-3, "weights")
 //    compare("p4", model("fpn_p4").get, 1e-3, "weights")
@@ -376,8 +377,9 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     compare("rpn_class_logits", model("rpn_class_logits").get, 1e-3, "weights")
     compare("rpn_bbox", model("rpn_bbox").get, 1e-3, "weights")
     compare("rpn_class", model("rpn_class").get, 1e-3, "weights")
+    print(model("rpn_class").get.output)
 
-//    println(model("ROIS").get.output)
+    println(model("ROI").get.output)
 //
 //    def compare(name: String): Unit = {
 //      middleRoot = s"/home/jxy/data/maskrcnn/weights/$name"
@@ -414,6 +416,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     out.map(expected, (a, b) => {
       if (Math.abs(a - b) > prec) {
         println(a, b, Math.abs(a - b))
+        return false
       }
       a
 //      assert(Math.abs(a - b) < prec); a
@@ -442,6 +445,9 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
                   if (w != null) {
                     if (w.dim() == 4) {
                       w = w.transpose(1, 3).transpose(2, 4).transpose(1, 2).contiguous()
+                    }
+                    if (w.dim() == 2) {
+                      w = w.transpose(1, 2).contiguous()
                     }
                   }
                   w
@@ -478,6 +484,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     s.zip(size2).foreach(x => {
       if (x._1 != x._2) {
         println(s"compare ${size1.mkString("x")} with ${size2.mkString("x")}")
+        throw new Exception(s"compare ${size1.mkString("x")} with ${size2.mkString("x")}")
         return
       }
     })
@@ -485,12 +492,12 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 
   def toHWC(tensor: Tensor[Float]): Tensor[Float] = {
     require(tensor.dim() == 4)
-    tensor.transpose(2, 3).transpose(3, 4)
+    tensor.transpose(2, 3).transpose(3, 4).contiguous()
   }
 
   def toCHW(tensor: Tensor[Float]): Tensor[Float] = {
     require(tensor.dim() == 4)
-    tensor.transpose(3, 4).transpose(2, 3)
+    tensor.transpose(3, 4).transpose(2, 3).contiguous()
   }
 
   "generate anchors" should "work" in {
@@ -565,5 +572,109 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 
     val out = model.forward(T(rpn_class, rpn_bbox, imInfo, anchors))
     println(out)
+  }
+
+  "maskrcnn classifier" should "work" in {
+    val rpn_rois = Input()
+    val mrcnn_feature_maps: Array[ModuleNode[Float]] = Array(Input(), Input(), Input(), Input())
+    val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
+      MaskRCNN.fpnClassifierGraph(rpn_rois, mrcnn_feature_maps,
+        MaskRCNN.IMAGE_SHAPE, MaskRCNN.POOL_SIZE, 81)
+
+    val model = Graph(Array(rpn_rois) ++ mrcnn_feature_maps,
+      Array(mrcnn_class_logits, mrcnn_class, mrcnn_bbox)).evaluate()
+    loadWeights(model)
+
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class"
+//    val rpn_class = loadFeatures("rpn_class")
+//
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_bbox"
+//    val rpn_bbox = loadFeatures("rpn_bbox")
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_rois"
+    val rpn_rois_data = loadFeatures("rpn_rois")
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p2"
+    val p2 = toCHW(loadFeatures("p2"))
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p3"
+    val p3 = toCHW(loadFeatures("p3"))
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p4"
+    val p4 = toCHW(loadFeatures("p4"))
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p5"
+    val p5 = toCHW(loadFeatures("p5"))
+
+    val input = T(rpn_rois_data, p2, p3, p4, p5)
+    model.forward(input)
+
+
+    compare("mrcnn_class_conv1", model("mrcnn_class_conv1").get, 1e-3, "weights")
+    compare("mrcnn_class_logits", model("mrcnn_class_logits").get, 1e-3, "weights")
+    compare("mrcnn_class", model("mrcnn_class").get, 1e-3, "weights")
+    compare("mrcnn_bbox", model("mrcnn_bbox").get, 1e-3, "weights")
+  }
+
+  "maskrcnn classifier2" should "work" in {
+    val rpn_rois = Input()
+    val mrcnn_feature_maps: Array[ModuleNode[Float]] = Array(Input(), Input(), Input(), Input())
+    val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
+      MaskRCNN.fpnClassifierGraph2(rpn_rois,
+        MaskRCNN.IMAGE_SHAPE, MaskRCNN.POOL_SIZE, 81)
+
+    val model = Graph(Array(rpn_rois),
+      Array(mrcnn_class_logits, mrcnn_class, mrcnn_bbox)).evaluate()
+    loadWeights(model)
+
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class"
+//    val rpn_class = loadFeatures("rpn_class")
+//
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_bbox"
+//    val rpn_bbox = loadFeatures("rpn_bbox")
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights/roialign"
+    val rpn_rois_data = toCHW(loadFeatures("roialign").squeeze(1))
+
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/p2"
+//    val p2 = toCHW(loadFeatures("p2"))
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/p3"
+//    val p3 = toCHW(loadFeatures("p3"))
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/p4"
+//    val p4 = toCHW(loadFeatures("p4"))
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/p5"
+//    val p5 = toCHW(loadFeatures("p5"))
+
+    val input = rpn_rois_data
+    model.forward(input)
+
+    compare("shared", model("pool_squeeze").get, 1e-3, "weights")
+
+    compare("mrcnn_class_logits", model("mrcnn_class_logits").get, 1e-3, "weights")
+    compare("mrcnn_class", model("mrcnn_class").get, 1e-3, "weights")
+    compare("mrcnn_bbox", model("mrcnn_bbox").get, 1e-3, "weights")
+  }
+
+  "PyramidRoiAlign forward" should "work properly" in {
+    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_rois"
+    val rpn_rois_data1 = loadFeatures("rpn_rois")
+    val rpn_rois_data = rpn_rois_data1.clone()
+
+    rpn_rois_data.narrow(3, 1, 1).copy(rpn_rois_data1.narrow(3, 2, 1))
+    rpn_rois_data.narrow(3, 2, 1).copy(rpn_rois_data1.narrow(3, 1, 1))
+    rpn_rois_data.narrow(3, 3, 1).copy(rpn_rois_data1.narrow(3, 4, 1))
+    rpn_rois_data.narrow(3, 4, 1).copy(rpn_rois_data1.narrow(3, 3, 1))
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p2"
+    val p2 = toCHW(loadFeatures("p2"))
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p3"
+    val p3 = toCHW(loadFeatures("p3"))
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p4"
+    val p4 = toCHW(loadFeatures("p4"))
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p5"
+    val p5 = toCHW(loadFeatures("p5"))
+
+    val input = T(rpn_rois_data, p2, p3, p4, p5)
+    val layer = new PyramidROIAlign(7, 7, 1024, 1024, 3)
+    layer.forward(input)
+    println(layer.output)
+    compare2("roialign", layer.output, 1e-5, "weights")
   }
 }

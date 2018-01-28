@@ -36,10 +36,15 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
     val channelDim = 2
     // Assign each ROI to a level in the pyramid based on the ROI area
     val splits = boxes.split(2)
-    val y1 = splits(0)
-    val x1 = splits(1)
-    val y2 = splits(2)
-    val x2 = splits(3)
+//    val y1 = splits(0)
+//    val x1 = splits(1)
+//    val y2 = splits(2)
+//    val x2 = splits(3)
+
+    val x1 = splits(0)
+    val y1 = splits(1)
+    val x2 = splits(2)
+    val y2 = splits(3)
     // todo: optimize
     val h = y2 - y1
     val w = x2 - x1
@@ -66,21 +71,21 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
         boxToLevel.insert(Tensor[Int](Storage(ix)).resize(ix.length, 1))
       }
 
-      val cropResize = Tensor[Float](ix.length, poolH, poolW,
-        input[Tensor[Float]](2).size(channelDim))
-      val featureMap = input[Tensor[Float]](i + 1).transpose(2, 3).transpose(3, 4).contiguous()
+      val cropResize = Tensor[Float](ix.length, input[Tensor[Float]](2).size(channelDim),
+        poolH, poolW)
+      val featureMap = input[Tensor[Float]](i + 1) // .transpose(2, 3).transpose(3, 4).contiguous()
 //        println(featureMap.size().mkString("x"))
       // todo: hdim, wdim
-      val hdim = 2
-      val wdim = 3
+      val hdim = 3
+      val wdim = 4
       ix.zip(Stream from(1)).foreach(ind => {
         val box = boxes(ind._1)
         val height = featureMap.size(hdim)
         val width = featureMap.size(wdim)
-        var hsOff = (height - 1) * box.valueAt(1)
-        var heOff = (height - 1) * (1 - box.valueAt(3))
-        var wsOff = (width - 1) * box.valueAt(2)
-        var weOff = (width - 1) * (1 - box.valueAt(4))
+        var hsOff = (height - 1) * box.valueAt(2)
+        var heOff = (height - 1) * (1 - box.valueAt(4))
+        var wsOff = (width - 1) * box.valueAt(1)
+        var weOff = (width - 1) * (1 - box.valueAt(3))
         if (hsOff + heOff > height || weOff + wsOff > width) {
           hsOff = 0
           heOff = 0
@@ -88,7 +93,7 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
           weOff = 0
         }
         val crop = Cropping2D(Array(hsOff.toInt, heOff.toInt),
-          Array(wsOff.toInt, weOff.toInt), DataFormat.NHWC)
+          Array(wsOff.toInt, weOff.toInt), DataFormat.NCHW)
         crop.forward(featureMap)
 //        println(crop.output.size().mkString("x"))
         resize.forward(crop.output)
@@ -137,7 +142,7 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
       output(i).copy(pooled(ix(i - 1) + 1))
     }
     // Assign each ROI to a level in the pyramid based on the ROI area.
-    output.resize(1, output.size(1), output.size(2), output.size(3), output.size(4))
+    output.resize(output.size(1), output.size(2), output.size(3), output.size(4))
   }
 
   override def updateGradInput(input: Table, gradOutput: Tensor[Float]): Table = {
