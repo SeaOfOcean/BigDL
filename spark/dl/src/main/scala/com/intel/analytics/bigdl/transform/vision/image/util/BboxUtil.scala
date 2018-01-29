@@ -149,10 +149,10 @@ object BboxUtil {
     val boxesArr = boxes.storage().array()
     var offset = boxes.storageOffset() - 1
     var i = 0
-    val sw = windows.valueAt(1, 1)
-    val sh = windows.valueAt(1, 2)
-    val ew = windows.valueAt(1, 3)
-    val eh = windows.valueAt(1, 4)
+    val sw = windows.valueAt(1)
+    val sh = windows.valueAt(2)
+    val ew = windows.valueAt(3)
+    val eh = windows.valueAt(4)
     while (i < boxes.size(1)) {
       boxesArr(offset) = Math.max(Math.min(boxesArr(offset), ew), sw)
       boxesArr(offset + 1) = Math.max(Math.min(boxesArr(offset + 1), eh), sh)

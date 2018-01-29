@@ -346,12 +346,12 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
   "MaskRCNN forward" should "work" in {
     val input = loadFeatures("input").transpose(2, 4).transpose(3, 4).contiguous()
     val imageMeta = loadFeatures("image_metas")
-//    var model = MaskRCNN().evaluate()
-////    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
-////    model.loadModelWeights(saved)
-//    loadWeights(model)
-//    model.save("/tmp/mask-rcnn.model", true)
-    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+    var model = MaskRCNN().evaluate()
+//    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
+//    model.loadModelWeights(saved)
+    loadWeights(model)
+    model.save("/tmp/mask-rcnn.model", true)
+//    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     println("load model done ...........")
     val out = model.forward(T(input, imageMeta))
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
@@ -740,4 +740,16 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     println(toHWC(layer.output))
     compare3("out", layer.output, 1e-5, "/tmp/Conv2DTranspose_p/")
   }
+
+  "refine detection" should "wprk" in {
+    val layer = DetectionOutputMRcnn()
+
+    middleRoot = "/home/jxy/data/maskrcnn/weights/"
+    val rois = loadFeatures("rois")
+    val probs = loadFeatures("probs")
+    val deltas = loadFeatures("deltas")
+    val window = loadFeatures("window")
+    layer.refineDetection(rois, probs, deltas, window)
+  }
 }
+

@@ -399,7 +399,7 @@ object MaskRCNN {
 
     // Conv layers
     x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
-      .setName("mrcnn_mask_conv1").inputs(x)
+      .setName("mrcnn_mask_conv1").inputs(rois)
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn1").inputs(x)
     x = ReLU(true).inputs(x)
 
@@ -419,19 +419,14 @@ object MaskRCNN {
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn4").inputs(x)
     x = ReLU(true).inputs(x)
 
-    // TODO: not sure
-//    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"),
-//      name="mrcnn_mask_deconv")(x)
-    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).inputs(x)
+    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).setName("mrcnn_mask_deconv").inputs(x)
     x = ReLU(true).inputs(x)
-    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).inputs(x)
-    x = Sigmoid().setName("mrcnn_mask").inputs(x)
-
-//    x = KL.TimeDistributed(KL.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid"),
-//      name="mrcnn_mask")(x)
+    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).setName("mrcnn_mask").inputs(x)
+    x = Sigmoid().inputs(x)
     x
   }
 
+  // todo: remove it
   def buildFpnMaskGraph2(rois: ModuleNode[Float], num_classes: Int): ModuleNode[Float] = {
 
     // ROI Pooling
