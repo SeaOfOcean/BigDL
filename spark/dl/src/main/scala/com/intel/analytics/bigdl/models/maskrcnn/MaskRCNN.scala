@@ -465,10 +465,10 @@ object MaskRCNN {
     // TODO: not sure
 //    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"),
 //      name="mrcnn_mask_deconv")(x)
-    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).inputs(x)
+    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).setName("mrcnn_mask_deconv").inputs(x)
     x = ReLU(true).inputs(x)
-    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).inputs(x)
-    x = Sigmoid().setName("mrcnn_mask").inputs(x)
+    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).setName("mrcnn_mask").inputs(x)
+    x = Sigmoid().inputs(x)
     x
   }
 

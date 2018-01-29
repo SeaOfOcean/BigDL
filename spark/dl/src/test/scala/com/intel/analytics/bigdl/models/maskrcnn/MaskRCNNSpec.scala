@@ -698,7 +698,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     model.forward(input)
     println(model.output.toTensor.size().mkString("x"))
 
-    compare("mrcnn_mask", model("mrcnn_mask").get, 1e-3, "weights")
+    compare2("mrcnn_mask", model.output.toTensor, 1e-3, "weights")
 //
 //    compare("mrcnn_class_logits", model("mrcnn_class_logits").get, 1e-3, "weights")
 //    compare("mrcnn_class", model("mrcnn_class").get, 1e-3, "weights")
