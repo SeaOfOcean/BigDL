@@ -273,7 +273,7 @@ object MaskRCNN {
 
     val detections = DetectionOutputMRcnn().inputs(rpn_rois, mrcnn_class, mrcnn_bbox, imInfo)
     // TODO: fix it
-    val detection_boxes = detections
+    val detection_boxes = MulConstant(1 / 1024f).inputs(detections)
     val mrcnn_mask = buildFpnMaskGraph(detection_boxes, mrcnn_feature_maps,
       IMAGE_SHAPE,
       MASK_POOL_SIZE,
@@ -399,7 +399,7 @@ object MaskRCNN {
 
     // Conv layers
     x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
-      .setName("mrcnn_mask_conv1").inputs(rois)
+      .setName("mrcnn_mask_conv1").inputs(x)
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn1").inputs(x)
     x = ReLU(true).inputs(x)
 

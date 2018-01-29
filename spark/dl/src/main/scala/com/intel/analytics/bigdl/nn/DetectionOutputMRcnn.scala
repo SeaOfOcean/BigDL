@@ -37,6 +37,15 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
     val image_meta = input[Tensor[Float]](4)
     val (_, _, window, _) = parseImageMeta(image_meta)
     refineDetection(rois, mrcnn_class, mrcnn_bbox, window)
+    // Pad with zeros if detections < DETECTION_MAX_INSTANCES
+    val gap = DETECTION_MAX_INSTANCES - output.size(1)
+    require(gap >= 0)
+    if (gap > 0) {
+      val origin = output.clone()
+      output.resize(1, DETECTION_MAX_INSTANCES, 6).zero()
+      if (origin.size(1) > 0) output.narrow(1, 1, origin.size(1)).copy(origin)
+    }
+
     output
   }
 
@@ -49,7 +58,7 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
 
   def refineDetection(rois: Tensor[Float], probs: Tensor[Float],
     deltas: Tensor[Float], window: Tensor[Float]): Tensor[Float] = {
-
+    deltas.squeeze(2)
     // class id for each roi
     val (classScores, classIds) = probs.topk(1, 2, increase = false)
     val deltaSpecific = Tensor[Float](classIds.nElement(), 4)
@@ -93,23 +102,28 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
       i += 1
     }
     keep = nmsKeep.toArray.sorted
-    val (sortedScore, sortedIds) =
-      BboxUtil.selectTensor(classScores, keep, 1).topk(keep.length, 1, false)
-    val topIds = if (keep.length > DETECTION_MAX_INSTANCES) {
-      sortedIds.narrow(1, 1, DETECTION_MAX_INSTANCES)
+    if (keep.length > 0) {
+      println("keep.length", keep.length)
+      val (sortedScore, sortedIds) =
+        BboxUtil.selectTensor(classScores, keep, 1).topk(keep.length, 1, false)
+      val topIds = if (keep.length > DETECTION_MAX_INSTANCES) {
+        sortedIds.narrow(1, 1, DETECTION_MAX_INSTANCES)
+      } else {
+        sortedIds
+      }
+      keep = (1 to topIds.nElement()).map(i => {
+        keep(topIds.valueAt(i, 1).toInt - 1)
+      }).toArray
+      val finalRois = BboxUtil.selectTensor(refinedRois, keep, 1)
+      val finalClassIds = BboxUtil.selectTensor(classIds, keep, 1)
+      val finalScores = BboxUtil.selectTensor(classScores, keep, 1)
+      output.resize(finalRois.size(1), 6)
+      output.narrow(2, 1, 4).copy(finalRois)
+      output.narrow(2, 5, 1).copy(finalClassIds)
+      output.narrow(2, 6, 1).copy(finalScores)
     } else {
-      sortedIds
+      output.resize(0, 6)
     }
-    keep = (1 to topIds.nElement()).map(i => {
-      keep(topIds.valueAt(i, 1).toInt - 1)
-    }).toArray
-    val finalRois = BboxUtil.selectTensor(refinedRois, keep, 1)
-    val finalClassIds = BboxUtil.selectTensor(classIds, keep, 1)
-    val finalScores = BboxUtil.selectTensor(classScores, keep, 1)
-    output.resize(finalRois.size(1), 6)
-    output.narrow(2, 1, 4).copy(finalRois)
-    output.narrow(2, 5, 1).copy(finalClassIds)
-    output.narrow(2, 6, 1).copy(finalScores)
   }
 
   var nmsTool: Nms = new Nms()
@@ -139,7 +153,7 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
   : (Tensor[Float], Tensor[Float], Tensor[Float], Tensor[Float]) = {
     val id = meta.narrow(2, 1, 1)
     val imageShape = meta.narrow(2, 2, 4)
-    val window = meta.narrow(2, 5, 4)
+    val window = meta.narrow(2, 5, 4).squeeze()
     val activeClassIds = meta.narrow(2, 9, meta.size(2) - 9)
     (id, imageShape, window, activeClassIds)
   }

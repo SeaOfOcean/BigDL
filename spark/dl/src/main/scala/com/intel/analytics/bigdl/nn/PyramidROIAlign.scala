@@ -31,8 +31,8 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
   override def updateOutput(input: Table): Tensor[Float] = {
     // Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
     val boxes = input[Tensor[Float]](1).squeeze(1)
-    require(boxes.dim() == 2 && boxes.size(2) == 4, "boxes should be batchxNx4 tensor," +
-      s" while actual is ${boxes.size().mkString("x")}")
+//    require(boxes.dim() == 2 && boxes.size(2) == 4, "boxes should be batchxNx4 tensor," +
+//      s" while actual is ${boxes.size().mkString("x")}")
     val channelDim = 2
     // Assign each ROI to a level in the pyramid based on the ROI area
     val splits = boxes.split(2)
