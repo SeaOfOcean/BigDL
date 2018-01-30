@@ -381,7 +381,13 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 //    print(model("rpn_class").get.output)
 //
 //    println(model("ROI").get.output)
-    println(model.output.toTable(1))
+    println(model.output.toTable[Tensor[Float]](1).size().mkString("x"))
+    println(model.output.toTable[Tensor[Float]](2).size().mkString("x"))
+    println(model.output.toTable[Tensor[Float]](3).size().mkString("x"))
+    println(model.output.toTable[Tensor[Float]](4).size().mkString("x"))
+    println(model.output.toTable[Tensor[Float]](5).size().mkString("x"))
+    println(model.output.toTable[Tensor[Float]](6).size().mkString("x"))
+    println(model.output.toTable[Tensor[Float]](7).size().mkString("x"))
 //
 //    def compare(name: String): Unit = {
 //      middleRoot = s"/home/jxy/data/maskrcnn/weights/$name"
