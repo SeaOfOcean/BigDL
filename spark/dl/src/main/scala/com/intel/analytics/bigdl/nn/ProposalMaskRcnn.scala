@@ -52,14 +52,13 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
   override def updateOutput(input: Table): Tensor[Float] = {
     val inputScore = input[Tensor[Float]](1)
     val rpnBboxes = input[Tensor[Float]](2)
-    val imInfo = input[Tensor[Float]](3)
-    require(inputScore.size(1) == 1 && imInfo.size(1) == 1, "currently only support single batch")
     init()
     require(rpnBboxes.dim() == 3)
     // todo: not sure whether it is needed
     bboxDeltas.resizeAs(rpnBboxes).copy(rpnBboxes)
 
     // do it due to pretrained order is y1, x1, y2, x2, change to x1, y1, x2, y2
+    // todo: maybe it is not needed
     bboxDeltas.narrow(3, 1, 1).copy(rpnBboxes.narrow(3, 2, 1))
     bboxDeltas.narrow(3, 2, 1).copy(rpnBboxes.narrow(3, 1, 1))
     bboxDeltas.narrow(3, 3, 1).copy(rpnBboxes.narrow(3, 4, 1))
@@ -70,11 +69,11 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
     bboxDeltas.narrow(2, 1, 2).mul(0.1f)
     bboxDeltas.narrow(2, 3, 2).mul(0.2f)
 
-    val fgScores = inputScore.narrow(3, 1, 1)
+    val fgScores = inputScore.narrow(3, 2, 1)
     scores.resizeAs(fgScores).copy(fgScores)
     scores.resize(inputScore.size(2))
 
-    val priorBoxes = input[Tensor[Float]](4)
+    val priorBoxes = input[Tensor[Float]](3)
     val anchors = priorBoxes.reshape(Array(priorBoxes.size(2), priorBoxes.size(3)))
 
     val preNmsTopN = if (isTraining()) rpnPreNmsTopNTrain else preNmsTopNTest
@@ -130,6 +129,10 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
       i += 1
     }
     output.resize(1, output.size(1), output.size(2))
+    println("rpn_rois ========================")
+    println(output)
+
+    println("rpn_rois ========================end")
     output
   }
 

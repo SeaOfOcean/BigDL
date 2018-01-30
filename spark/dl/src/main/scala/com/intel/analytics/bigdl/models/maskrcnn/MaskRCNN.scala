@@ -263,10 +263,7 @@ object MaskRCNN {
 
     val rpn_rois = ProposalMaskRcnn(6000, 1000)
       .setName("ROI")
-      .inputs(rpn_class, rpn_bbox, imInfo, anchors)
-
-//    return Graph(Array(data, imInfo), Array(rpn_rois, rpn_class_logits, rpn_class, rpn_bbox))
-//      .setName("mask_rcnn")
+      .inputs(rpn_class, rpn_bbox, anchors)
 
     val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
       fpnClassifierGraph(rpn_rois, mrcnn_feature_maps, IMAGE_SHAPE, POOL_SIZE, NUM_CLASSES)

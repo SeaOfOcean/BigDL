@@ -16,19 +16,21 @@
 
 package com.intel.analytics.bigdl.nn
 
-import com.intel.analytics.bigdl.nn.abstractnn.{AbstractModule, Activity}
+import com.intel.analytics.bigdl.nn.abstractnn.{AbstractModule}
 import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
-import com.intel.analytics.bigdl.transform.vision.image.label.roi.RoiLabel
 import com.intel.analytics.bigdl.transform.vision.image.util.BboxUtil
 import com.intel.analytics.bigdl.utils.Table
+import org.apache.log4j.Logger
+import DetectionOutputMRcnn.logger
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 
 class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
   DETECTION_MAX_INSTANCES: Int = 100)(
   implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
+
+  var nmsTool: Nms = new Nms()
 
   override def updateOutput(input: Table): Tensor[Float] = {
     val rois = input[Tensor[Float]](1)
@@ -43,7 +45,11 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
     if (gap > 0) {
       val origin = output.clone()
       output.resize(1, DETECTION_MAX_INSTANCES, 6).zero()
-      if (origin.size(1) > 0) output.narrow(1, 1, origin.size(1)).copy(origin)
+      if (origin.size(1) > 0) {
+        output.narrow(2, 1, origin.size(1)).copy(origin)
+      } else {
+        logger.warn("there is no rois detected!")
+      }
     }
 
     output
@@ -91,7 +97,7 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
         val bboxes = BboxUtil.selectTensor(preNmsRois, ixs, 1).squeeze()
         val resultIndices = new Array[Int](ixs.length)
         val num = nmsTool.nms(scores, bboxes, nmsThresh, resultIndices, false)
-        (0 until(num)).foreach(n => {
+        (0 until (num)).foreach(n => {
           val elem = keep(ixs(resultIndices(n) - 1) - 1)
           nmsKeep.add(elem)
         })
@@ -126,28 +132,6 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
     }
   }
 
-  var nmsTool: Nms = new Nms()
-//  private def postProcessOneClass(classIds: Tensor[Float],
-//    scores: Tensor[Float], boxes: Tensor[Float],
-//    clsInd: Int): RoiLabel = {
-//    val inds = (1 to scores.size(1)).filter(ind =>
-//      scores.valueAt(ind, clsInd + 1) > thresh).toArray
-//    if (inds.length == 0) return null
-//    val clsScores = BboxUtil.selectTensor(scores.select(2, clsInd + 1), inds, 1)
-//    val clsBoxes = BboxUtil.selectTensor(boxes.narrow(2, clsInd * 4 + 1, 4), inds, 1)
-//
-//    val keepN = nmsTool.nms(clsScores, clsBoxes, nmsThresh, inds)
-//
-//    val bboxNms = selectTensor(clsBoxes, inds, 1, keepN)
-//    val scoresNms = selectTensor(clsScores, inds, 1, keepN)
-//    if (bboxVote) {
-//      if (areas == null) areas = Tensor[Float]
-//      BboxUtil.bboxVote(scoresNms, bboxNms, clsScores, clsBoxes, areas)
-//    } else {
-//      RoiLabel(scoresNms, bboxNms)
-//    }
-//  }
-
 
   private def parseImageMeta(meta: Tensor[Float])
   : (Tensor[Float], Tensor[Float], Tensor[Float], Tensor[Float]) = {
@@ -160,5 +144,7 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
 }
 
 object DetectionOutputMRcnn {
+  val logger = Logger.getLogger(getClass)
+
   def apply()(implicit ev: TensorNumeric[Float]): DetectionOutputMRcnn = new DetectionOutputMRcnn()
 }

@@ -346,12 +346,12 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
   "MaskRCNN forward" should "work" in {
     val input = loadFeatures("input").transpose(2, 4).transpose(3, 4).contiguous()
     val imageMeta = loadFeatures("image_metas")
-    var model = MaskRCNN().evaluate()
-//    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
-//    model.loadModelWeights(saved)
-    loadWeights(model)
-    model.save("/tmp/mask-rcnn.model", true)
-//    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+//    var model = MaskRCNN().evaluate()
+////    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
+////    model.loadModelWeights(saved)
+//    loadWeights(model)
+//    model.save("/tmp/mask-rcnn.model", true)
+    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     println("load model done ...........")
     val out = model.forward(T(input, imageMeta))
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
@@ -374,9 +374,10 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 //    compare("p5", model("fpn_p5").get, 1e-3, "weights")
 //    compare("p6", model("fpn_p6").get, 1e-3, "weights")
 
-    compare("rpn_class_logits", model("rpn_class_logits").get, 1e-3, "weights")
+//    compare("rpn_class_logits", model("rpn_class_logits").get, 1e-3, "weights")
     compare("rpn_bbox", model("rpn_bbox").get, 1e-3, "weights")
     compare("rpn_class", model("rpn_class").get, 1e-3, "weights")
+    compare("rpn_rois", model("ROI").get, 1e-3, "weights")
 //    print(model("rpn_class").get.output)
 //
 //    println(model("ROI").get.output)
@@ -565,14 +566,6 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_bbox"
     val rpn_bbox = loadFeatures("rpn_bbox")
-//    val rpn_bbox = rpn_bbox1.clone()
-//    rpn_bbox.narrow(3, 1, 1).copy(rpn_bbox1.narrow(3, 2, 1))
-//    rpn_bbox.narrow(3, 2, 1).copy(rpn_bbox1.narrow(3, 1, 1))
-//    rpn_bbox.narrow(3, 3, 1).copy(rpn_bbox1.narrow(3, 4, 1))
-//    rpn_bbox.narrow(3, 4, 1).copy(rpn_bbox1.narrow(3, 3, 1))
-
-    middleRoot = "/home/jxy/data/maskrcnn/weights/"
-    val imInfo = loadFeatures("image_metas")
 
     middleRoot = "/home/jxy/data/maskrcnn/weights/anchors"
     val anchors1 = loadFeatures("anchors").resize(1, 261888, 4)
@@ -582,7 +575,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     anchors.narrow(3, 3, 1).copy(anchors1.narrow(3, 4, 1))
     anchors.narrow(3, 4, 1).copy(anchors1.narrow(3, 3, 1))
 
-    val inputs = (1 to 4).map(i => Input()).toArray
+    val inputs = (1 to 3).map(i => Input()).toArray
     // rpn_class, rpn_bbox, imInfo, anchors
     val proposal = ProposalMaskRcnn(6000, 1000)
       .setName("ROI")
@@ -590,8 +583,10 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
 
     val model = Graph[Float](inputs, proposal).evaluate()
 
-    val out = model.forward(T(rpn_class, rpn_bbox, imInfo, anchors))
+    val out = model.forward(T(rpn_class, rpn_bbox, anchors))
     println(out)
+
+    compare("rpn_rois", model("ROI").get, 1e-3, "weights")
   }
 
   "maskrcnn classifier" should "work" in {

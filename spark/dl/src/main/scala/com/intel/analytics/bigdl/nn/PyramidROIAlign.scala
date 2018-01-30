@@ -74,7 +74,6 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
       val cropResize = Tensor[Float](ix.length, input[Tensor[Float]](2).size(channelDim),
         poolH, poolW)
       val featureMap = input[Tensor[Float]](i + 1) // .transpose(2, 3).transpose(3, 4).contiguous()
-//        println(featureMap.size().mkString("x"))
       // todo: hdim, wdim
       val hdim = 3
       val wdim = 4
@@ -95,15 +94,10 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
         val crop = Cropping2D(Array(hsOff.toInt, heOff.toInt),
           Array(wsOff.toInt, weOff.toInt), DataFormat.NCHW)
         crop.forward(featureMap)
-//        println(crop.output.size().mkString("x"))
         resize.forward(crop.output)
-//        println(resize.output.size().mkString("x"))
-//        println(i)
-//        println(cropResize.size().mkString("x"))
         cropResize(ind._2).copy(resize.output.squeeze(1))
       })
       if (cropResize.nElement() > 0) pooledTable.insert(cropResize)
-      println(cropResize.size().mkString("x"))
 
 
 
@@ -123,12 +117,9 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
     }
     // Pack pooled features into one tensor
     val pooled = concat.forward(pooledTable).asInstanceOf[Tensor[Float]]
-    println(boxToLevel)
     val boxToLevels = concat2.forward(boxToLevel)
-    println(pooled.size().mkString("x"))
     val ix = boxToLevels.squeeze()
       .toArray().asInstanceOf[Array[Int]].zipWithIndex.sortBy(_._1).map(_._2)
-    println(ix.mkString(","))
 
     // Feature Maps. List of feature maps from different level of the
     // feature pyramid. Each is [batch, height, width, channels]
