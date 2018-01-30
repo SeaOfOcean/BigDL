@@ -17,7 +17,8 @@
 package com.intel.analytics.bigdl.transform.vision.image.augmentation
 
 import com.intel.analytics.bigdl.transform.vision.image.opencv.OpenCVMat
-import com.intel.analytics.bigdl.transform.vision.image.{BytesToMat, ImageFrame, LocalImageFrame}
+import com.intel.analytics.bigdl.transform.vision.image.util.BoundingBox
+import com.intel.analytics.bigdl.transform.vision.image.{BytesToMat, ImageFeature, ImageFrame, LocalImageFrame}
 import org.opencv.imgcodecs.Imgcodecs
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -57,6 +58,21 @@ class ResizeSpec extends FlatSpec with Matchers {
     imageFeature.getHeight() should be(750)
     imageFeature.getWidth() should be(1000)
 
+
+    val tmpFile = java.io.File.createTempFile("module", ".jpg")
+    Imgcodecs.imwrite(tmpFile.toString, imageFeature.opencvMat())
+    println(tmpFile)
+  }
+
+  "AspectScale with padding" should "work properly" in {
+    val data = ImageFrame.read(resource.getFile)
+    val transformer = AspectScale(750, maxSize = 1024, padding = true)
+    val transformed = transformer(data)
+    val imageFeature = transformed.asInstanceOf[LocalImageFrame].array(0)
+    imageFeature.getHeight() should be(1024)
+    imageFeature.getWidth() should be(1024)
+    imageFeature(ImageFeature.boundingBox).asInstanceOf[BoundingBox] should be
+    (BoundingBox(12.0f, 137.0f, 1012.0f, 887.0f))
 
     val tmpFile = java.io.File.createTempFile("module", ".jpg")
     Imgcodecs.imwrite(tmpFile.toString, imageFeature.opencvMat())

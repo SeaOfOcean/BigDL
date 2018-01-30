@@ -24,14 +24,35 @@ import com.intel.analytics.bigdl.models.resnet.Convolution
 import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.numeric.NumericFloat
+import com.intel.analytics.bigdl.optim.LocalPredictor
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
-import com.intel.analytics.bigdl.utils.{T, Table}
-import org.scalatest.{FlatSpec, Matchers}
+import com.intel.analytics.bigdl.transform.vision.image.{ImageFeature, ImageFrame, ImageFrameToSample, MatToTensor}
+import com.intel.analytics.bigdl.transform.vision.image.augmentation.{AspectScale, ChannelNormalize}
+import com.intel.analytics.bigdl.utils.{Engine, MklBlas, T, Table}
+import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 import scala.io.Source
 
-class MaskRCNNSpec extends FlatSpec with Matchers {
+class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
+
+  private val nodeNumber = 1
+  private val coreNumber = 1
+  val batchPerCore = 1
+  var subModelNumber = coreNumber
+
+  before {
+    System.setProperty("bigdl.localMode", "true")
+    Engine.init(nodeNumber, coreNumber, false)
+    subModelNumber = Engine.getEngineType match {
+      case MklBlas => coreNumber
+      case _ => throw new IllegalArgumentException
+    }
+  }
+
+  after {
+    System.clearProperty("bigdl.localMode")
+  }
   def loadFeaturesFullName(s: String, hasSize: Boolean = true,
     middleRoot: String = middleRoot): Tensor[Float] = {
     loadFeaturesFullPath(Paths.get(middleRoot, s).toString, hasSize)
@@ -346,12 +367,12 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
   "MaskRCNN forward" should "work" in {
     val input = loadFeatures("input").transpose(2, 4).transpose(3, 4).contiguous()
     val imageMeta = loadFeatures("image_metas")
-//    var model = MaskRCNN().evaluate()
+    //    var model = MaskRCNN().evaluate()
 ////    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
 ////    model.loadModelWeights(saved)
 //    loadWeights(model)
 //    model.save("/tmp/mask-rcnn.model", true)
-    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     println("load model done ...........")
     val out = model.forward(T(input, imageMeta))
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
@@ -751,6 +772,30 @@ class MaskRCNNSpec extends FlatSpec with Matchers {
     val deltas = loadFeatures("deltas")
     val window = loadFeatures("window")
     layer.refineDetection(rois, probs, deltas, window)
+  }
+
+  "data preprocessing" should "work" in {
+    val images = ImageFrame.read("/home/jxy/code/Mask_RCNN/images/1045023827_4ec3e8ba5c_z.jpg") ->
+      AspectScale(800, 1, 1024, true, useScaleFactor = false, minScale = Some(1)) ->
+        ChannelNormalize(103.9f, 116.8f, 123.7f) ->
+        MatToTensor() -> ImageMeta(81) ->
+        ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
+    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+    val predictor = LocalPredictor[Float](model, batchPerCore = 1)
+    predictor.predictImage(images.toLocal())
+    val data = images.toLocal().array(0)[Tensor[Float]](ImageFeature.imageTensor)
+      .resize(1, 3, images.toLocal().array(0).getHeight, images.toLocal().array(0).getWidth())
+    println(data.size().mkString("x"))
+    println(toHWC(data))
+    compare2("input", data, 1e-2, "weights")
+  }
+
+  "whole process" should "work" in {
+    val images = ImageFrame.read("/home/jxy/code/Mask_RCNN/images/1045023827_4ec3e8ba5c_z.jpg")
+    val transformer =
+      AspectScale(800, 1, 1024, true, useScaleFactor = false, minScale = Some(1)) ->
+        ChannelNormalize(103.9f, 116.8f, 123.7f) ->
+        MatToTensor()
   }
 }
 

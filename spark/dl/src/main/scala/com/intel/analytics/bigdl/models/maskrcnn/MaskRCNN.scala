@@ -22,8 +22,11 @@ import com.intel.analytics.bigdl.models.resnet.ResNet.{DatasetType, ShortcutType
 import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.nn.ops.Conv2DTranspose
+import com.intel.analytics.bigdl.tensor.Tensor
 import com.intel.analytics.bigdl.utils.T
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
+import com.intel.analytics.bigdl.transform.vision.image.util.BoundingBox
+import com.intel.analytics.bigdl.transform.vision.image.{FeatureTransformer, ImageFeature}
 
 object MaskRCNN {
   // The strides of each layer of the FPN Pyramid. These values
@@ -463,5 +466,24 @@ object MaskRCNN {
     x = Sigmoid().inputs(x)
     x
   }
+}
 
+class ImageMeta(numClass: Int) extends FeatureTransformer {
+  override def transformMat(feature: ImageFeature): Unit = {
+    val meta = Tensor[Float](8 + numClass)
+    meta.setValue(2, feature.getOriginalHeight)
+    meta.setValue(3, feature.getOriginalWidth)
+    meta.setValue(4, 3) // channel
+    val windows = feature[BoundingBox](ImageFeature.boundingBox)
+    meta.setValue(5, windows.x1)
+    meta.setValue(6, windows.y1)
+    meta.setValue(7, windows.x2)
+    meta.setValue(8, windows.y2)
+    feature(ImageMeta.imageMeta) = meta
+  }
+}
+
+object ImageMeta {
+  val imageMeta = "ImageMeta"
+  def apply(numClass: Int): ImageMeta = new ImageMeta(numClass)
 }
