@@ -79,6 +79,7 @@ class OpenCVMat() extends Mat with Serializable {
 
   /**
    * draw bounding box on current mat
+   *
    * @param bbox bounding box
    * @param text text
    * @param font text fond
@@ -89,7 +90,13 @@ class OpenCVMat() extends Mat with Serializable {
   def drawBoundingBox(bbox: BoundingBox, text: String,
     font: Int = Core.FONT_HERSHEY_COMPLEX_SMALL,
     boxColor: (Double, Double, Double) = (0, 255, 0),
-    textColor: (Double, Double, Double) = (255, 255, 255)): this.type = {
+    textColor: (Double, Double, Double) = (255, 255, 255),
+    opacity: Double = 1): this.type = {
+    var imageCopy: OpenCVMat = null
+    if (opacity != 1) {
+      imageCopy = new OpenCVMat()
+      this.copyTo(imageCopy)
+    }
     Imgproc.rectangle(this,
       new Point(bbox.x1, bbox.y1),
       new Point(bbox.x2, bbox.y2),
@@ -98,6 +105,10 @@ class OpenCVMat() extends Mat with Serializable {
       new Point(bbox.x1, bbox.y1 - 2),
       font, 1,
       new Scalar(textColor._1, textColor._2, textColor._3), 1)
+    if (opacity != 1) {
+      Core.addWeighted(this, opacity, imageCopy, 1 - opacity, 0, this)
+      imageCopy.release()
+    }
     this
   }
 }
@@ -224,6 +235,7 @@ object OpenCVMat {
 
   /**
    * convert pixel bytes to OpenCVMat
+   *
    * @param pixels pixels in byte array
    * @param height image height
    * @param width image width
@@ -243,10 +255,11 @@ object OpenCVMat {
    * convert float tensor to OpenCVMat,
    * Note that if you want to convert the tensor to BGR image,
    * the element should be in range [0, 255]
+   *
    * @param tensor tensor that represent an image
    * @param format "HWC" or "CHW",
-   *               "HWC" means (height, width, channel) order,
-   *               "CHW" means (channel, height, width) order
+   * "HWC" means (height, width, channel) order,
+   * "CHW" means (channel, height, width) order
    * @return OpenCVMat
    */
   def fromTensor(tensor: Tensor[Float], format: String = "HWC"): OpenCVMat = {

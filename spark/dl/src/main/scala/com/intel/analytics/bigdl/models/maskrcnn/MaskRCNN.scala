@@ -23,7 +23,7 @@ import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.nn.ops.Conv2DTranspose
 import com.intel.analytics.bigdl.tensor.Tensor
-import com.intel.analytics.bigdl.utils.T
+import com.intel.analytics.bigdl.utils.{T, Table}
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 import com.intel.analytics.bigdl.transform.vision.image.util.BoundingBox
 import com.intel.analytics.bigdl.transform.vision.image.{FeatureTransformer, ImageFeature}
@@ -490,6 +490,9 @@ object ImageMeta {
 
 class UnmodeDetection() extends FeatureTransformer {
   override def transformMat(feature: ImageFeature): Unit = {
-
+    val output = feature[Table](ImageFeature.predict)
+    val detections = output[Tensor[Float]](1)
+    val mrcnnMask = output[Tensor[Float]](4)
+    val windows = feature[BoundingBox](ImageFeature.boundingBox)
   }
 }
