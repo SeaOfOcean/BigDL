@@ -27,7 +27,7 @@ import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.optim.LocalPredictor
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.transform.vision.image.{ImageFeature, ImageFrame, ImageFrameToSample, MatToTensor}
-import com.intel.analytics.bigdl.transform.vision.image.augmentation.{AspectScale, ChannelNormalize}
+import com.intel.analytics.bigdl.transform.vision.image.augmentation.{AspectScale, ChannelNormalize, FixExpand}
 import com.intel.analytics.bigdl.utils.{Engine, MklBlas, T, Table}
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
@@ -53,6 +53,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
   after {
     System.clearProperty("bigdl.localMode")
   }
+
   def loadFeaturesFullName(s: String, hasSize: Boolean = true,
     middleRoot: String = middleRoot): Tensor[Float] = {
     loadFeaturesFullPath(Paths.get(middleRoot, s).toString, hasSize)
@@ -776,10 +777,11 @@ val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
 
   "data preprocessing" should "work" in {
     val images = ImageFrame.read("/home/jxy/code/Mask_RCNN/images/1045023827_4ec3e8ba5c_z.jpg") ->
-      AspectScale(800, 1, 1024, true, useScaleFactor = false, minScale = Some(1)) ->
-        ChannelNormalize(103.9f, 116.8f, 123.7f) ->
-        MatToTensor() -> ImageMeta(81) ->
-        ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
+      AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
+      FixExpand(1024, 1024) ->
+      ChannelNormalize(103.9f, 116.8f, 123.7f) ->
+      MatToTensor() -> ImageMeta(81) ->
+      ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
     val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     val predictor = LocalPredictor[Float](model, batchPerCore = 1)
     predictor.predictImage(images.toLocal())
@@ -790,10 +792,24 @@ val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     compare2("input", data, 1e-2, "weights")
   }
 
+  "data preprocessing2" should "work" in {
+    val images = ImageFrame.read("/home/jxy/code/Mask_RCNN/images/1045023827_4ec3e8ba5c_z.jpg") ->
+      AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
+      FixExpand(1024, 1024) ->
+      ChannelNormalize(103.9f, 116.8f, 123.7f) ->
+      MatToTensor() -> ImageMeta(81) ->
+      ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
+    val data = images.toLocal().array(0)[Tensor[Float]](ImageFeature.imageTensor)
+      .resize(1, 3, images.toLocal().array(0).getHeight, images.toLocal().array(0).getWidth())
+    println(data.size().mkString("x"))
+    compare2("input", data, 1e-2, "weights")
+  }
+
   "whole process" should "work" in {
     val images = ImageFrame.read("/home/jxy/code/Mask_RCNN/images/1045023827_4ec3e8ba5c_z.jpg")
     val transformer =
-      AspectScale(800, 1, 1024, true, useScaleFactor = false, minScale = Some(1)) ->
+      AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
+        FixExpand(1024, 1024) ->
         ChannelNormalize(103.9f, 116.8f, 123.7f) ->
         MatToTensor()
   }

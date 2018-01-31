@@ -64,21 +64,6 @@ class ResizeSpec extends FlatSpec with Matchers {
     println(tmpFile)
   }
 
-  "AspectScale with padding" should "work properly" in {
-    val data = ImageFrame.read(resource.getFile)
-    val transformer = AspectScale(750, maxSize = 1024, padding = true)
-    val transformed = transformer(data)
-    val imageFeature = transformed.asInstanceOf[LocalImageFrame].array(0)
-    imageFeature.getHeight() should be(1024)
-    imageFeature.getWidth() should be(1024)
-    imageFeature(ImageFeature.boundingBox).asInstanceOf[BoundingBox] should be
-    (BoundingBox(12.0f, 137.0f, 1012.0f, 887.0f))
-
-    val tmpFile = java.io.File.createTempFile("module", ".jpg")
-    Imgcodecs.imwrite(tmpFile.toString, imageFeature.opencvMat())
-    println(tmpFile)
-  }
-
   "RandomAspectScale" should "work properly" in {
     val data = ImageFrame.read(resource.getFile)
     val transformer = RandomAspectScale(Array(750), maxSize = 3000)
