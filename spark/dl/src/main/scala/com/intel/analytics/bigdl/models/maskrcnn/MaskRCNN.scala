@@ -487,3 +487,9 @@ object ImageMeta {
   val imageMeta = "ImageMeta"
   def apply(numClass: Int): ImageMeta = new ImageMeta(numClass)
 }
+
+class UnmodeDetection() extends FeatureTransformer {
+  override def transformMat(feature: ImageFeature): Unit = {
+
+  }
+}
