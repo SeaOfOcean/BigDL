@@ -28,10 +28,13 @@ import com.intel.analytics.bigdl.optim.LocalPredictor
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.transform.vision.image.{ImageFeature, ImageFrame, ImageFrameToSample, MatToTensor}
 import com.intel.analytics.bigdl.transform.vision.image.augmentation.{AspectScale, ChannelNormalize, FixExpand}
-import com.intel.analytics.bigdl.utils.{Engine, MklBlas, T, Table}
+import com.intel.analytics.bigdl.transform.vision.image.opencv.OpenCVMat
+import com.intel.analytics.bigdl.utils._
+import org.opencv.imgcodecs.Imgcodecs
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 import scala.io.Source
+import scala.util.Random
 
 class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
@@ -812,6 +815,16 @@ val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
         FixExpand(1024, 1024) ->
         ChannelNormalize(103.9f, 116.8f, 123.7f) ->
         MatToTensor()
+  }
+
+  "draw mask" should "work" in {
+    val image = OpenCVMat.read("/home/jxy/code/Mask_RCNN/images/1045023827_4ec3e8ba5c_z.jpg")
+    val mask = loadFeatures("mask0")
+    val r = RandomGenerator.RNG.uniform(0, 255)
+    val g = RandomGenerator.RNG.uniform(0, 255)
+    val b = RandomGenerator.RNG.uniform(0, 255)
+    val imageWithMask = image.drawMask(mask, (r, g, b))
+    Imgcodecs.imwrite("/tmp/save.jpg", imageWithMask)
   }
 }
 

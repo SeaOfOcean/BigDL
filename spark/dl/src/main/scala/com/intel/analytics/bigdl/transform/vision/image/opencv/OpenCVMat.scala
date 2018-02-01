@@ -17,9 +17,11 @@
 package com.intel.analytics.bigdl.transform.vision.image.opencv
 
 import java.io.{File, IOException, ObjectInputStream, ObjectOutputStream}
+import java.util
 
 import com.intel.analytics.bigdl.opencv.OpenCV
-import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
+import com.intel.analytics.bigdl.transform.vision.image.augmentation.ChannelNormalize
 import com.intel.analytics.bigdl.transform.vision.image.util.BoundingBox
 import org.apache.commons.io.FileUtils
 import org.opencv.core._
@@ -110,6 +112,26 @@ class OpenCVMat() extends Mat with Serializable {
       imageCopy.release()
     }
     this
+  }
+
+  def drawMask(mask: Tensor[Float],
+    boxColor: (Double, Double, Double) = (0, 255, 0),
+    opacity: Float = 0.5f): OpenCVMat = {
+    require(mask.dim() == 2, s"there should be two dim in mask, while got ${mask.dim()}")
+    val images = OpenCVMat.toTensor(this)
+    (1 to images.size(1)).foreach(h => {
+      (1 to images.size(2)).foreach(w => {
+        if (mask.valueAt(h, w) == 1) {
+          images.setValue(h, w, 1,
+            images.valueAt(h, w, 1) * opacity + (1 - opacity) * boxColor._1.toFloat)
+          images.setValue(h, w, 2,
+            images.valueAt(h, w, 2) * opacity + (1 - opacity) * boxColor._2.toFloat)
+          images.setValue(h, w, 3,
+            images.valueAt(h, w, 3) * opacity + (1 - opacity) * boxColor._3.toFloat)
+        }
+      })
+    })
+    OpenCVMat.fromTensor(images)
   }
 }
 
@@ -231,6 +253,11 @@ object OpenCVMat {
     }
     input.get(0, 0, floats)
     (floats, input.height(), input.width(), channel)
+  }
+
+  def toTensor(input: Mat): Tensor[Float] = {
+    val floats = toFloatPixels(input)
+    Tensor(Storage(floats._1)).resize(input.height(), input.width(), input.channels())
   }
 
   /**
