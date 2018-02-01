@@ -819,11 +819,14 @@ val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
 
   "draw mask" should "work" in {
     val image = OpenCVMat.read("/home/jxy/code/Mask_RCNN/images/1045023827_4ec3e8ba5c_z.jpg")
-    val mask = loadFeatures("mask0")
-    val r = RandomGenerator.RNG.uniform(0, 255)
-    val g = RandomGenerator.RNG.uniform(0, 255)
-    val b = RandomGenerator.RNG.uniform(0, 255)
-    val imageWithMask = image.drawMask(mask, (r, g, b))
+    var mask = loadFeatures("mask0")
+
+    val mask1 = loadFeatures("mask1")
+
+    val mask2 = loadFeatures("mask2")
+
+    val mask3 = loadFeatures("mask3")
+    val imageWithMask = image.drawMask(Array(mask, mask1, mask2, mask3))
     Imgcodecs.imwrite("/tmp/save.jpg", imageWithMask)
   }
 }
