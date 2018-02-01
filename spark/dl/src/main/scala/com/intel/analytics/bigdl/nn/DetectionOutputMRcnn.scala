@@ -22,7 +22,6 @@ import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.transform.vision.image.util.BboxUtil
 import com.intel.analytics.bigdl.utils.Table
 import org.apache.log4j.Logger
-import DetectionOutputMRcnn.logger
 
 import scala.collection.mutable
 
@@ -39,18 +38,18 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
     val image_meta = input[Tensor[Float]](4)
     val (_, _, window, _) = parseImageMeta(image_meta)
     refineDetection(rois, mrcnn_class, mrcnn_bbox, window)
-    // Pad with zeros if detections < DETECTION_MAX_INSTANCES
-    val gap = DETECTION_MAX_INSTANCES - output.size(1)
-    require(gap >= 0)
-    if (gap > 0) {
-      val origin = output.clone()
-      output.resize(1, DETECTION_MAX_INSTANCES, 6).zero()
-      if (origin.size(1) > 0) {
-        output.narrow(2, 1, origin.size(1)).copy(origin)
-      } else {
-        logger.warn("there is no rois detected!")
-      }
-    }
+    // todo: Pad with zeros if detections < DETECTION_MAX_INSTANCES
+//    val gap = DETECTION_MAX_INSTANCES - output.size(1)
+//    require(gap >= 0)
+//    if (gap > 0) {
+//      val origin = output.clone()
+//      output.resize(1, DETECTION_MAX_INSTANCES, 6).zero()
+//      if (origin.size(1) > 0) {
+//        output.narrow(2, 1, origin.size(1)).copy(origin)
+//      } else {
+//        logger.warn("there is no rois detected!")
+//      }
+//    }
 
     output
   }
@@ -123,12 +122,12 @@ class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
       val finalRois = BboxUtil.selectTensor(refinedRois, keep, 1)
       val finalClassIds = BboxUtil.selectTensor(classIds, keep, 1)
       val finalScores = BboxUtil.selectTensor(classScores, keep, 1)
-      output.resize(finalRois.size(1), 6)
-      output.narrow(2, 1, 4).copy(finalRois)
-      output.narrow(2, 5, 1).copy(finalClassIds)
-      output.narrow(2, 6, 1).copy(finalScores)
+      output.resize(1, finalRois.size(1), 6)
+      output.narrow(3, 1, 4).copy(finalRois)
+      output.narrow(3, 5, 1).copy(finalClassIds)
+      output.narrow(3, 6, 1).copy(finalScores)
     } else {
-      output.resize(0, 6)
+      output.resize(1, 0, 6)
     }
   }
 

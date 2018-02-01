@@ -371,12 +371,12 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
   "MaskRCNN forward" should "work" in {
     val input = loadFeatures("input").transpose(2, 4).transpose(3, 4).contiguous()
     val imageMeta = loadFeatures("image_metas")
-    //    var model = MaskRCNN().evaluate()
-////    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
-////    model.loadModelWeights(saved)
-//    loadWeights(model)
-//    model.save("/tmp/mask-rcnn.model", true)
-val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+    var model = MaskRCNN().evaluate()
+//    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
+//    model.loadModelWeights(saved)
+    loadWeights(model)
+    model.save("/tmp/mask-rcnn.model", true)
+//val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     println("load model done ...........")
     val out = model.forward(T(input, imageMeta))
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
@@ -787,12 +787,35 @@ val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
       ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
     val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     val predictor = LocalPredictor[Float](model, batchPerCore = 1)
-    predictor.predictImage(images.toLocal())
-    val data = images.toLocal().array(0)[Tensor[Float]](ImageFeature.imageTensor)
-      .resize(1, 3, images.toLocal().array(0).getHeight, images.toLocal().array(0).getWidth())
-    println(data.size().mkString("x"))
-    println(toHWC(data))
-    compare2("input", data, 1e-2, "weights")
+    val output = predictor.predictImage(images.toLocal())
+    val detectOut = UnmodeDetection()
+    detectOut(images)
+    val image = OpenCVMat.read("/home/jxy/code/Mask_RCNN/images/1045023827_4ec3e8ba5c_z.jpg")
+    val out = images.toLocal()
+      .array(0)[(Tensor[Float], Tensor[Float], Tensor[Float], Array[Tensor[Float]])]("unmode")
+
+    val imageWithMask = image.drawMask(out._4)
+    Imgcodecs.imwrite("/tmp/save.jpg", imageWithMask)
+  }
+
+  "data preprocessing cat" should "work" in {
+    val images = ImageFrame.read("/home/jxy/data/roger.jpg") ->
+      AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
+      FixExpand(1024, 1024) ->
+      ChannelNormalize(103.9f, 116.8f, 123.7f) ->
+      MatToTensor() -> ImageMeta(81) ->
+      ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
+    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+    val predictor = LocalPredictor[Float](model, batchPerCore = 1)
+    val output = predictor.predictImage(images.toLocal())
+    val detectOut = UnmodeDetection()
+    detectOut(images)
+    val image = OpenCVMat.read("/home/jxy/data/roger.jpg")
+    val out = images.toLocal()
+      .array(0)[(Tensor[Float], Tensor[Float], Tensor[Float], Array[Tensor[Float]])]("unmode")
+
+    val imageWithMask = image.drawMask(out._4)
+    Imgcodecs.imwrite("/tmp/save2.jpg", imageWithMask)
   }
 
   "data preprocessing2" should "work" in {
