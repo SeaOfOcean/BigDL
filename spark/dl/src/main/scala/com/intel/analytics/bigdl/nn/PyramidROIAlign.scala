@@ -25,7 +25,7 @@ import com.intel.analytics.bigdl.utils.{T, Table}
 @SerialVersionUID(-1562995431845030993L)
 class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
   (implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
-  val resize = ResizeBilinear(poolH, poolW)
+  val resize = ResizeBilinear(poolH, poolW, true)
   val concat = JoinTable(1, 4)
   val concat2 = JoinTable[Int](1, 2)
   override def updateOutput(input: Table): Tensor[Float] = {
@@ -65,7 +65,7 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
     var level = 2
     val boxToLevel = T()
     val pooledTable = T()
-    while (i <= 4) {
+    while (i <= input.length() - 1) {
       val ix = (1 to roiLevel.nElement()).filter(roiLevel.valueAt(_) == level).toArray
       if (ix.length > 0) {
         boxToLevel.insert(Tensor[Int](Storage(ix)).resize(ix.length, 1))
@@ -81,10 +81,10 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
         val box = boxes(ind._1)
         val height = featureMap.size(hdim)
         val width = featureMap.size(wdim)
-        var hsOff = (height - 1) * box.valueAt(2)
-        var heOff = (height - 1) * (1 - box.valueAt(4))
-        var wsOff = (width - 1) * box.valueAt(1)
-        var weOff = (width - 1) * (1 - box.valueAt(3))
+        var hsOff = (height) * box.valueAt(2)
+        var heOff = (height) * (1 - box.valueAt(4))
+        var wsOff = (width) * box.valueAt(1)
+        var weOff = (width) * (1 - box.valueAt(3))
         if (hsOff + heOff > height || weOff + wsOff > width) {
           hsOff = 0
           heOff = 0
@@ -98,9 +98,6 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
         cropResize(ind._2).copy(resize.output.squeeze(1))
       })
       if (cropResize.nElement() > 0) pooledTable.insert(cropResize)
-
-
-
 
       // Crop and Resize
       // From Mask R-CNN paper: "We sample four regular locations, so

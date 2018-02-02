@@ -274,7 +274,6 @@ object MaskRCNN {
       fpnClassifierGraph(rpn_rois, mrcnn_feature_maps, IMAGE_SHAPE, POOL_SIZE, NUM_CLASSES)
 
     val detections = DetectionOutputMRcnn().inputs(rpn_rois, mrcnn_class, mrcnn_bbox, imInfo)
-    // TODO: fix it
     val detection_boxes = MulConstant(1 / 1024f).inputs(detections)
     val mrcnn_mask = buildFpnMaskGraph(detection_boxes, mrcnn_feature_maps,
       IMAGE_SHAPE,
@@ -329,37 +328,6 @@ object MaskRCNN {
       .inputs(shared)
     val mrcnn_probs = SoftMax().setName("mrcnn_class").inputs(mrcnn_class_logits)
 
-
-    // BBox head
-    // [batch, boxes, num_classes * (dy, dx, log(dh), log(dw))]
-    x = Linear(1024, numClasses * 4).setName("mrcnn_bbox_fc").inputs(shared)
-    // Reshape to [batch, boxes, num_classes, (dy, dx, log(dh), log(dw))]
-    val mrcnn_bbox = Reshape(Array(1, numClasses, 4)).setName("mrcnn_bbox").inputs(x)
-    (mrcnn_class_logits, mrcnn_probs, mrcnn_bbox)
-  }
-
-  // todo: remove
-  def fpnClassifierGraph2(roisAlign: ModuleNode[Float],
-    imageShape: Array[Int], poolSize: Int, numClasses: Int)
-  : (ModuleNode[Float], ModuleNode[Float], ModuleNode[Float]) = {
-    // ROI Pooling
-    // Shape: [batch, num_boxes, pool_height, pool_width, channels]
-//    var x = PyramidROIAlign(poolSize, poolSize,
-//      imgH = imageShape(0), imgW = imageShape(1), imgC = imageShape(2))
-//      .inputs(Array(rois) ++ featureMaps)
-    // Two 1024 FC layers (implemented with Conv2D for consistency)
-    var x = SpatialConvolution(256, 1024, poolSize, poolSize).setName("mrcnn_class_conv1")
-      .inputs(roisAlign)
-    x = SpatialBatchNormalization(1024, eps = 0.001).setName("mrcnn_class_bn1").inputs(x)
-    x = ReLU(true).inputs(x)
-    x = SpatialConvolution(1024, 1024, 1, 1).setName("mrcnn_class_conv2").inputs(x)
-    x = SpatialBatchNormalization(1024, eps = 0.001).setName("mrcnn_class_bn2").inputs(x)
-    x = ReLU(true).inputs(x)
-    val shared = Squeeze(Array(4, 3), batchMode = false).setName("pool_squeeze").inputs(x)
-    // Classifier head
-    val mrcnn_class_logits = Linear(1024, numClasses).setName("mrcnn_class_logits")
-      .inputs(shared)
-    val mrcnn_probs = SoftMax().setName("mrcnn_class").inputs(mrcnn_class_logits)
 
     // BBox head
     // [batch, boxes, num_classes * (dy, dx, log(dh), log(dw))]
@@ -428,45 +396,19 @@ object MaskRCNN {
     x
   }
 
-  // todo: remove it
-  def buildFpnMaskGraph2(rois: ModuleNode[Float], num_classes: Int): ModuleNode[Float] = {
-
-    // ROI Pooling
-    // Shape: [batch, boxes, pool_height, pool_width, channels]
-//    var x = PyramidROIAlign(poolSize, poolSize,
-//      imgH = imageShape(0), imgW = imageShape(1), imgC = imageShape(2)).setName("roi_align_mask")
-//      .inputs(Array(rois) ++ featureMaps)
-
-    // Conv layers
-    var x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
-      .setName("mrcnn_mask_conv1").inputs(rois)
-    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn1").inputs(x)
-    x = ReLU(true).inputs(x)
-
-    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
-      .setName("mrcnn_mask_conv2").inputs(x)
-    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn2").inputs(x)
-    x = ReLU(true).inputs(x)
-
-
-    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
-      .setName("mrcnn_mask_conv3").inputs(x)
-    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn3").inputs(x)
-    x = ReLU(true).inputs(x)
-
-    x = SpatialConvolution(256, 256, 3, 3, padH = -1, padW = -1)
-      .setName("mrcnn_mask_conv4").inputs(x)
-    x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn4").inputs(x)
-    x = ReLU(true).inputs(x)
-
-    // TODO: not sure
-//    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"),
-//      name="mrcnn_mask_deconv")(x)
-    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).setName("mrcnn_mask_deconv").inputs(x)
-    x = ReLU(true).inputs(x)
-    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).setName("mrcnn_mask").inputs(x)
-    x = Sigmoid().inputs(x)
-    x
+  def visualize(mat: OpenCVMat, rois: Tensor[Float],
+    labelMap: Map[Int, String],
+    thresh: Double): OpenCVMat = {
+    (1 to rois.size(1)).foreach(i => {
+      val score = rois.valueAt(i, 2)
+      if (score > thresh) {
+        val className = labelMap(rois.valueAt(i, 1).toInt)
+        val bbox = BoundingBox(rois.valueAt(i, 3), rois.valueAt(i, 4),
+          rois.valueAt(i, 5), rois.valueAt(i, 6))
+        mat.drawBoundingBox(bbox, s"$className $score")
+      }
+    })
+    mat
   }
 }
 

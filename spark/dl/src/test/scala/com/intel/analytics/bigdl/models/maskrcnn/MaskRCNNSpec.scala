@@ -23,14 +23,17 @@ import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.models.resnet.Convolution
 import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
+import com.intel.analytics.bigdl.nn.abstractnn.DataFormat
 import com.intel.analytics.bigdl.numeric.NumericFloat
 import com.intel.analytics.bigdl.optim.LocalPredictor
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.transform.vision.image.{ImageFeature, ImageFrame, ImageFrameToSample, MatToTensor}
-import com.intel.analytics.bigdl.transform.vision.image.augmentation.{AspectScale, ChannelNormalize, FixExpand}
+import com.intel.analytics.bigdl.transform.vision.image.augmentation._
 import com.intel.analytics.bigdl.transform.vision.image.opencv.OpenCVMat
 import com.intel.analytics.bigdl.utils._
+import org.opencv.core.CvType
 import org.opencv.imgcodecs.Imgcodecs
+import org.opencv.imgproc.Imgproc
 import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers}
 
 import scala.io.Source
@@ -659,78 +662,6 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     compare("mrcnn_bbox", model("mrcnn_bbox").get, 1e-3, "weights")
   }
 
-  "maskrcnn classifier2" should "work" in {
-    val rpn_rois = Input()
-    val mrcnn_feature_maps: Array[ModuleNode[Float]] = Array(Input(), Input(), Input(), Input())
-    val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
-      MaskRCNN.fpnClassifierGraph2(rpn_rois,
-        MaskRCNN.IMAGE_SHAPE, MaskRCNN.POOL_SIZE, 81)
-
-    val model = Graph(Array(rpn_rois),
-      Array(mrcnn_class_logits, mrcnn_class, mrcnn_bbox)).evaluate()
-    loadWeights(model)
-
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class"
-//    val rpn_class = loadFeatures("rpn_class")
-//
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_bbox"
-//    val rpn_bbox = loadFeatures("rpn_bbox")
-
-    middleRoot = "/home/jxy/data/maskrcnn/weights/roialign"
-    val rpn_rois_data = toCHW(loadFeatures("roialign").squeeze(1))
-
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/p2"
-//    val p2 = toCHW(loadFeatures("p2"))
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/p3"
-//    val p3 = toCHW(loadFeatures("p3"))
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/p4"
-//    val p4 = toCHW(loadFeatures("p4"))
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/p5"
-//    val p5 = toCHW(loadFeatures("p5"))
-
-    val input = rpn_rois_data
-    model.forward(input)
-
-    compare("shared", model("pool_squeeze").get, 1e-3, "weights")
-
-    compare("mrcnn_class_logits", model("mrcnn_class_logits").get, 1e-3, "weights")
-    compare("mrcnn_class", model("mrcnn_class").get, 1e-3, "weights")
-    compare("mrcnn_bbox", model("mrcnn_bbox").get, 1e-3, "weights")
-  }
-
-
-  "maskrcnn buildFpnMaskGraph2" should "work" in {
-    val rpn_rois = Input()
-    val mrcnn_feature_maps: Array[ModuleNode[Float]] = Array(Input(), Input(), Input(), Input())
-    val x =
-      MaskRCNN.buildFpnMaskGraph2(rpn_rois, 81)
-
-    val model = Graph(Array(rpn_rois), Array(x)).evaluate()
-    loadWeights(model)
-
-    middleRoot = "/home/jxy/data/maskrcnn/weights/roialign2"
-    val rpn_rois_data = loadFeatures("roialign2")
-
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/p2"
-//    val p2 = toCHW(loadFeatures("p2"))
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/p3"
-//    val p3 = toCHW(loadFeatures("p3"))
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/p4"
-//    val p4 = toCHW(loadFeatures("p4"))
-//    middleRoot = "/home/jxy/data/maskrcnn/weights/p5"
-//    val p5 = toCHW(loadFeatures("p5"))
-
-    val input = toCHW(rpn_rois_data.squeeze(1))
-    model.forward(input)
-    println(model.output.toTensor.size().mkString("x"))
-
-    compare2("mrcnn_mask", model.output.toTensor, 1e-3, "weights")
-//
-//    compare("mrcnn_class_logits", model("mrcnn_class_logits").get, 1e-3, "weights")
-//    compare("mrcnn_class", model("mrcnn_class").get, 1e-3, "weights")
-//    compare("mrcnn_bbox", model("mrcnn_bbox").get, 1e-3, "weights")
-  }
-
   "PyramidRoiAlign forward" should "work properly" in {
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_rois"
     val rpn_rois_data1 = loadFeatures("rpn_rois")
@@ -751,10 +682,36 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val p5 = toCHW(loadFeatures("p5"))
 
     val input = T(rpn_rois_data, p2, p3, p4, p5)
-    val layer = new PyramidROIAlign(7, 7, 1024, 1024, 3)
+    val layer = PyramidROIAlign(7, 7, 1024, 1024, 3)
     layer.forward(input)
     println(layer.output)
     compare2("roialign", layer.output, 1e-5, "weights")
+  }
+
+  "PyramidRoiAlign single forward" should "work properly" in {
+    middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_rois"
+    val rpn_rois_data1 = loadFeatures("rpn_rois")
+    val rpn_rois_data = rpn_rois_data1.clone()
+
+    rpn_rois_data.narrow(3, 1, 1).copy(rpn_rois_data1.narrow(3, 2, 1))
+    rpn_rois_data.narrow(3, 2, 1).copy(rpn_rois_data1.narrow(3, 1, 1))
+    rpn_rois_data.narrow(3, 3, 1).copy(rpn_rois_data1.narrow(3, 4, 1))
+    rpn_rois_data.narrow(3, 4, 1).copy(rpn_rois_data1.narrow(3, 3, 1))
+
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/p2"
+//    val p2 = toCHW(loadFeatures("p2"))
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/p3"
+//    val p3 = toCHW(loadFeatures("p3"))
+//    middleRoot = "/home/jxy/data/maskrcnn/weights/p4"
+//    val p4 = toCHW(loadFeatures("p4"))
+    middleRoot = "/home/jxy/data/maskrcnn/weights/p5"
+    val p5 = toCHW(loadFeatures("p5"))
+
+    val input = T(rpn_rois_data, p5)
+    val layer = PyramidROIAlign(7, 7, 1024, 1024, 3)
+    layer.forward(input)
+    println(toHWC(layer.output))
+//    compare2("roialign", layer.output, 1e-5, "weights")
   }
 
   "compare deconv" should "work" in {
@@ -848,6 +805,27 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val mask3 = loadFeatures("mask3")
     val imageWithMask = image.drawMask(Array(mask, mask1, mask2, mask3))
     Imgcodecs.imwrite("/tmp/save.jpg", imageWithMask)
+  }
+
+  "resize and crop" should "work" in {
+    val mat = OpenCVMat.read("/home/jxy/data/roger.jpg")
+    mat.convertTo(mat, CvType.CV_32FC3)
+    val tensor = OpenCVMat.toTensor(mat)
+    tensor.resize(Array(1) ++ tensor.size())
+    val input = toCHW(tensor)
+//    Crop.transform(mat, mat, 0, 0, 0.25f, 0.25f)
+//    Resize.transform(mat, mat, 100, 200,
+//      mode = Imgproc.INTER_LINEAR, useScaleFactor = false)
+//    println(OpenCVMat.toTensor(mat))
+//    println()
+
+    val crop = Cropping2D(Array(0, (2092 * 0.4).toInt),
+      Array(0, (600 * 0.4).toInt), DataFormat.NCHW)
+    crop.forward(input)
+    val resize = ResizeBilinear(300, 400, true)
+    resize.forward(crop.output)
+    println(toHWC(resize.output))
+//    cropResize(ind._2).copy(resize.output.squeeze(1))
   }
 }
 
