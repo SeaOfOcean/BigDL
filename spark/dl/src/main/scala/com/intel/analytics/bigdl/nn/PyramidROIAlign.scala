@@ -28,12 +28,13 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
   val resize = ResizeBilinear(poolH, poolW, true)
   val concat = JoinTable(1, 4)
   val concat2 = JoinTable[Int](1, 2)
+
   override def updateOutput(input: Table): Tensor[Float] = {
     // Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
     val boxes = input[Tensor[Float]](1).squeeze(1)
-//    require(boxes.dim() == 2 && boxes.size(2) == 4, "boxes should be batchxNx4 tensor," +
+    //    require(boxes.dim() == 2 && boxes.size(2) == 4, "boxes should be batchxNx4 tensor," +
 //      s" while actual is ${boxes.size().mkString("x")}")
-    val channelDim = 2
+val channelDim = 2
     // Assign each ROI to a level in the pyramid based on the ROI area
     val splits = boxes.split(2)
 //    val y1 = splits(0)
@@ -73,29 +74,30 @@ class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
 
       val cropResize = Tensor[Float](ix.length, input[Tensor[Float]](2).size(channelDim),
         poolH, poolW)
-      val featureMap = input[Tensor[Float]](i + 1) // .transpose(2, 3).transpose(3, 4).contiguous()
+      val featureMap = input[Tensor[Float]](i + 1)
       // todo: hdim, wdim
       val hdim = 3
       val wdim = 4
-      ix.zip(Stream from(1)).foreach(ind => {
+      ix.zip(Stream from (1)).foreach(ind => {
         val box = boxes(ind._1)
-        val height = featureMap.size(hdim)
-        val width = featureMap.size(wdim)
-        var hsOff = (height) * box.valueAt(2)
-        var heOff = (height) * (1 - box.valueAt(4))
-        var wsOff = (width) * box.valueAt(1)
-        var weOff = (width) * (1 - box.valueAt(3))
-        if (hsOff + heOff > height || weOff + wsOff > width) {
-          hsOff = 0
-          heOff = 0
-          wsOff = 0
-          weOff = 0
-        }
-        val crop = Cropping2D(Array(hsOff.toInt, heOff.toInt),
-          Array(wsOff.toInt, weOff.toInt), DataFormat.NCHW)
-        crop.forward(featureMap)
-        resize.forward(crop.output)
-        cropResize(ind._2).copy(resize.output.squeeze(1))
+        PyramidROIAlign.cropAndResize(featureMap, box, poolH, poolW, cropResize(ind._2))
+//        val height = featureMap.size(hdim)
+//        val width = featureMap.size(wdim)
+//        var hsOff = (height - 1) * box.valueAt(2)
+//        var heOff = (height - 1) * (1 - box.valueAt(4))
+//        var wsOff = (width - 1) * box.valueAt(1)
+//        var weOff = (width - 1) * (1 - box.valueAt(3))
+//        if (hsOff + heOff > height || weOff + wsOff > width) {
+//          hsOff = 0
+//          heOff = 0
+//          wsOff = 0
+//          weOff = 0
+//        }
+//        val crop = Cropping2D(Array(hsOff.floor.toInt, heOff.floor.toInt),
+//          Array(wsOff.floor.toInt, weOff.floor.toInt), DataFormat.NCHW)
+//
+//        resize.forward(crop.forward(featureMap))
+//        cropResize(ind._2).copy(resize.output.squeeze(1))
       })
       if (cropResize.nElement() > 0) pooledTable.insert(cropResize)
 
@@ -146,4 +148,67 @@ object PyramidROIAlign {
   def apply(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
     (implicit ev: TensorNumeric[Float]): PyramidROIAlign =
     new PyramidROIAlign(poolH, poolW, imgH, imgW, imgC)
+
+  def cropAndResize(image: Tensor[Float],
+    box: Tensor[Float], cropH: Int, cropW: Int, crops: Tensor[Float])
+    (implicit ev: TensorNumeric[Float]): Unit = {
+    val imageH = image.size(3)
+    val imageW = image.size(4)
+    val depth = image.size(2)
+    val x1 = box.valueAt(1)
+    val y1 = box.valueAt(2)
+    val x2 = box.valueAt(3)
+    val y2 = box.valueAt(4)
+    val b_in = 1
+
+    val heightScale = if (cropH > 1) {
+      (y2 - y1) * (imageH - 1) / (cropH - 1)
+    } else {
+      0
+    }
+    val widthScale = if (cropW > 1) {
+      (x2 - x1) * (imageW - 1) / (cropW - 1)
+    } else {
+      0
+    }
+    var y = 0
+    while (y < cropH) {
+      val inY = if (cropH > 1) {
+        y1 * (imageH - 1) + y * heightScale
+      } else {
+        0.5 * (y1 + y2) * (imageH - 1)
+      }
+      if (!(inY < 0 || inY > imageH - 1)) {
+        val topYIndex = inY.floor.toInt
+        val bottomYIndex = inY.ceil.toInt
+        val yLerp = inY - topYIndex
+        var x = 0
+        while (x < cropW) {
+          val inX = if (cropW > 1) {
+            x1 * (imageW - 1) + x * widthScale
+          } else {
+            0.5 * (x1 + x2) * (imageW - 1)
+          }
+          if (!(inX < 0 || inX > imageW - 1)) {
+            val leftXIndex = inX.floor.toInt
+            val rightXIndex = inX.ceil.toInt
+            val xLerp = inX - leftXIndex
+            var d = 0
+            while (d < depth) {
+              val topLeft = image.valueAt(b_in, d + 1, topYIndex + 1, leftXIndex + 1)
+              val topRight = image.valueAt(b_in, d + 1, topYIndex + 1, rightXIndex + 1)
+              val bottomLeft = image.valueAt(b_in, d + 1, bottomYIndex + 1, leftXIndex + 1)
+              val bottomRight = image.valueAt(b_in, d + 1, bottomYIndex + 1, rightXIndex + 1)
+              val top = topLeft + (topRight - topLeft) * xLerp
+              val bottom = bottomLeft + (bottomRight - bottomLeft) * xLerp
+              crops.setValue(d + 1, y + 1, x + 1, (top + (bottom - top) * yLerp).toFloat)
+              d += 1
+            }
+          }
+          x += 1
+        }
+      }
+      y += 1
+    }
+  }
 }

@@ -21,8 +21,10 @@ import com.intel.analytics.bigdl.models.resnet.{Convolution, ResNet}
 import com.intel.analytics.bigdl.models.resnet.ResNet.{DatasetType, ShortcutType}
 import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
+import com.intel.analytics.bigdl.nn.abstractnn.{AbstractModule, TensorModule}
 import com.intel.analytics.bigdl.nn.ops.Conv2DTranspose
 import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.{T, Table}
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
 import com.intel.analytics.bigdl.transform.vision.image.augmentation.Resize
@@ -483,3 +485,37 @@ class UnmodeDetection() extends FeatureTransformer {
 object UnmodeDetection {
   def apply(): UnmodeDetection = new UnmodeDetection()
 }
+
+//class CropAndResize(cropH: Int, cropW: Int, boxes: Tensor[Float])(implicit ev: TensorNumeric[Float])
+//  extends AbstractModule[Table, Tensor[Float], Float] {
+//
+//  override def updateOutput(input: Table): Tensor[Float] = {
+//    val image = input[Tensor[Float]](1)
+//    val batchSize = image.size(1)
+//    val imageH = image.size(3)
+//    val imageW = image.size(4)
+//
+//    val crops = input[Tensor[Float]](2)
+//    val numBoxes = crops.size(1)
+//    val cropH = crops.size(2)
+//
+//    var b = 1
+//    while (b <= boxes.size(1)) {
+//      val y1 = boxes.
+//      b += 1
+//    }
+//    output
+//  }
+//
+//  /**
+//   * Computing the gradient of the module with respect to its own input. This is returned in
+//   * gradInput. Also, the gradInput state variable is updated accordingly.
+//   *
+//   * @param input
+//   * @param gradOutput
+//   * @return
+//   */
+//  override def updateGradInput(input: Table, gradOutput: Tensor[Float]): Table = {
+//    gradInput
+//  }
+//}

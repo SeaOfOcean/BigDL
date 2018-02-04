@@ -772,7 +772,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
       .array(0)[(Tensor[Float], Tensor[Float], Tensor[Float], Array[Tensor[Float]])]("unmode")
 
     val imageWithMask = image.drawMask(out._4)
-    Imgcodecs.imwrite("/tmp/save2.jpg", imageWithMask)
+    Imgcodecs.imwrite("/tmp/save3.jpg", imageWithMask)
   }
 
   "data preprocessing2" should "work" in {
@@ -813,19 +813,21 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val tensor = OpenCVMat.toTensor(mat)
     tensor.resize(Array(1) ++ tensor.size())
     val input = toCHW(tensor)
-//    Crop.transform(mat, mat, 0, 0, 0.25f, 0.25f)
-//    Resize.transform(mat, mat, 100, 200,
-//      mode = Imgproc.INTER_LINEAR, useScaleFactor = false)
-//    println(OpenCVMat.toTensor(mat))
-//    println()
 
-    val crop = Cropping2D(Array(0, (2092 * 0.4).toInt),
-      Array(0, (600 * 0.4).toInt), DataFormat.NCHW)
+    println(input.size().mkString("x"))
+    val height = mat.height()
+    val width = mat.width()
+//    val crop = Cropping2D(Array((height * 0.3).round.toInt, (height * 0.3).round.toInt),
+//      Array((0.1 * width).round.toInt, (width * 0.2).round.toInt), DataFormat.NCHW)
+    val crop = Cropping2D(Array((0.2 * height).floor.toInt, (0.0 * height).toInt),
+      Array((0.3 * width).floor.toInt, (0.0 * width).toInt), DataFormat.NCHW)
+//    val crop = Cropping2D(Array(0, height * 0.7 - 20 - 50),
+//      Array(0, width - 30 - 60), DataFormat.NCHW)
     crop.forward(input)
+//    println(toHWC(crop.output))
     val resize = ResizeBilinear(300, 400, true)
     resize.forward(crop.output)
     println(toHWC(resize.output))
-//    cropResize(ind._2).copy(resize.output.squeeze(1))
   }
 }
 
