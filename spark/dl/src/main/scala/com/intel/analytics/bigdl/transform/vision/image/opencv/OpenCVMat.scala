@@ -17,11 +17,9 @@
 package com.intel.analytics.bigdl.transform.vision.image.opencv
 
 import java.io.{File, IOException, ObjectInputStream, ObjectOutputStream}
-import java.util
 
 import com.intel.analytics.bigdl.opencv.OpenCV
 import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
-import com.intel.analytics.bigdl.transform.vision.image.augmentation.ChannelNormalize
 import com.intel.analytics.bigdl.transform.vision.image.util.BoundingBox
 import com.intel.analytics.bigdl.utils.RandomGenerator
 import org.apache.commons.io.FileUtils

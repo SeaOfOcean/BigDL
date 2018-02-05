@@ -759,7 +759,9 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   "data preprocessing cat" should "work" in {
-    val images = ImageFrame.read("/home/jxy/data/test/000019.jpg") ->
+    val imagePath = "/home/jxy/data/test/000019.jpg"
+//    val imagePath = "/home/jxy/data/dogs.jpg"
+    val images = ImageFrame.read(imagePath) ->
       AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
       FixExpand(1024, 1024) ->
       ChannelNormalize(103.9f, 116.8f, 123.7f) ->
@@ -770,12 +772,27 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val output = predictor.predictImage(images.toLocal())
     val detectOut = UnmodeDetection()
     detectOut(images)
-    val image = OpenCVMat.read("/home/jxy/data/test/000019.jpg")
+    val image = OpenCVMat.read(imagePath)
     val out = images.toLocal()
       .array(0)[(Tensor[Float], Tensor[Float], Tensor[Float], Array[Tensor[Float]])]("unmode")
+    // (boxes, classIds, scores, fullMasks)
 
+    println(out)
+    val labelMap = readCocoLabelMap()
+
+    Visualizer.visualize(image, out._1, out._3, out._2, labelMap, 0.3)
     val imageWithMask = image.drawMask(out._4)
     Imgcodecs.imwrite("/tmp/save3.jpg", imageWithMask)
+  }
+
+
+  def readCocoLabelMap(): Map[Int, String] = {
+    readLabelMap("/coco_classname.txt")
+  }
+
+  def readLabelMap(labelFileName: String): Map[Int, String] = {
+    val labelFile = getClass().getResource(labelFileName)
+    Source.fromURL(labelFile).getLines().zipWithIndex.map(x => (x._2, x._1)).toMap
   }
 
   "data preprocessing2" should "work" in {
@@ -833,4 +850,81 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     println(toHWC(resize.output))
   }
 }
+
+import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.transform.vision.image.{FeatureTransformer, ImageFeature}
+import com.intel.analytics.bigdl.transform.vision.image.opencv.OpenCVMat
+import com.intel.analytics.bigdl.transform.vision.image.util.BoundingBox
+
+/**
+ * used for image object detection
+ * visualize detected bounding boxes and their scores to image
+ */
+class Visualizer(labelMap: Map[Int, String], thresh: Float = 0.3f,
+  encoding: String = "png", outKey: String = Visualizer.visualized) extends FeatureTransformer {
+  override def transformMat(imageFeature: ImageFeature): Unit = {
+    val rois = imageFeature.predict().asInstanceOf[Tensor[Float]]
+    val uri = imageFeature.uri()
+    val image = imageFeature.bytes()
+    val imageFile = visualizeDetection(image, uri, rois)
+    imageFeature(outKey) = imageFile
+  }
+
+  private def visualizeDetection(image: Array[Byte],
+    uri: String, rois: Tensor[Float]): Array[Byte] = {
+    if (rois.dim() != 2) return image
+    require(rois.dim() == 2, "output dim should be 2")
+    require(rois.size(2) == 6, "output should have 6 cols, class score xmin ymin xmax ymax")
+    var mat: OpenCVMat = null
+    try {
+      mat = OpenCVMat.fromImageBytes(image)
+      Visualizer.visualize(mat, rois, labelMap, thresh)
+      OpenCVMat.imencode(mat, encoding)
+    } finally {
+      if (mat != null) mat.release()
+    }
+  }
+
+}
+
+
+object Visualizer {
+
+  val visualized = "visualized"
+
+  def apply(labelMap: Map[Int, String], thresh: Float = 0.3f,
+    encoding: String = "png", outKey: String = visualized): Visualizer =
+    new Visualizer(labelMap, thresh, encoding, outKey)
+
+
+  def visualize(mat: OpenCVMat, rois: Tensor[Float],
+    labelMap: Map[Int, String], thresh: Double): OpenCVMat = {
+    (1 to rois.size(1)).foreach(i => {
+      val score = rois.valueAt(i, 2)
+      if (score > thresh) {
+        val className = labelMap(rois.valueAt(i, 1).toInt)
+        val bbox = BoundingBox(rois.valueAt(i, 3), rois.valueAt(i, 4),
+          rois.valueAt(i, 5), rois.valueAt(i, 6))
+        mat.drawBoundingBox(bbox, s"$className $score")
+      }
+    })
+    mat
+  }
+
+  def visualize(mat: OpenCVMat,
+    rois: Tensor[Float], scores: Tensor[Float], classIds: Tensor[Float],
+    labelMap: Map[Int, String], thresh: Double): OpenCVMat = {
+    (1 to rois.size(1)).foreach(i => {
+      val score = scores.valueAt(i)
+      if (score > thresh) {
+        val className = labelMap(classIds.valueAt(i).toInt)
+        val bbox = BoundingBox(rois.valueAt(i, 1), rois.valueAt(i, 2),
+          rois.valueAt(i, 3), rois.valueAt(i, 4))
+        mat.drawBoundingBox(bbox, s"$className $score")
+      }
+    })
+    mat
+  }
+}
+
 

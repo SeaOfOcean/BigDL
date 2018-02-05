@@ -32,6 +32,8 @@ import com.intel.analytics.bigdl.transform.vision.image.opencv.OpenCVMat
 import com.intel.analytics.bigdl.transform.vision.image.util.BoundingBox
 import com.intel.analytics.bigdl.transform.vision.image.{FeatureTransformer, ImageFeature}
 
+import scala.io.Source
+
 object MaskRCNN {
   // The strides of each layer of the FPN Pyramid. These values
   // are based on a Resnet101 backbone.
@@ -436,7 +438,6 @@ object ImageMeta {
 
 class UnmodeDetection() extends FeatureTransformer {
   override def transformMat(feature: ImageFeature): Unit = {
-    println("unmode")
     val output = feature[Table](ImageFeature.predict)
     val detections = output[Tensor[Float]](1)
     val mrcnnMask = output[Tensor[Float]](4)
@@ -457,6 +458,7 @@ class UnmodeDetection() extends FeatureTransformer {
     boxes.narrow(2, 3, 1).add(-windows.x1)
     boxes.narrow(2, 4, 1).add(-windows.y1)
     boxes.mul(scale)
+
     val fullMasks = (1 to boxes.size(1)).map(i => {
       unmodeMask(masks(i - 1), boxes(i), feature.getOriginalHeight, feature.getOriginalWidth)
     }).toArray
@@ -470,7 +472,7 @@ class UnmodeDetection() extends FeatureTransformer {
     val x2 = bbox.valueAt(3).toInt
     val y2 = bbox.valueAt(4).toInt
     val mat = OpenCVMat.fromTensor(mask.reshape(Array(mask.size(1), mask.size(2), 1)))
-    Resize.transform(mat, mat, (x2 - x1), (y2 - y1))
+    Resize.transform(mat, mat, x2 - x1, y2 - y1)
     val out = OpenCVMat.toTensor(mat)
     out.apply1(x => {
       if (x >= 0.5) 1 else 0
@@ -485,37 +487,3 @@ class UnmodeDetection() extends FeatureTransformer {
 object UnmodeDetection {
   def apply(): UnmodeDetection = new UnmodeDetection()
 }
-
-//class CropAndResize(cropH: Int, cropW: Int, boxes: Tensor[Float])(implicit ev: TensorNumeric[Float])
-//  extends AbstractModule[Table, Tensor[Float], Float] {
-//
-//  override def updateOutput(input: Table): Tensor[Float] = {
-//    val image = input[Tensor[Float]](1)
-//    val batchSize = image.size(1)
-//    val imageH = image.size(3)
-//    val imageW = image.size(4)
-//
-//    val crops = input[Tensor[Float]](2)
-//    val numBoxes = crops.size(1)
-//    val cropH = crops.size(2)
-//
-//    var b = 1
-//    while (b <= boxes.size(1)) {
-//      val y1 = boxes.
-//      b += 1
-//    }
-//    output
-//  }
-//
-//  /**
-//   * Computing the gradient of the module with respect to its own input. This is returned in
-//   * gradInput. Also, the gradInput state variable is updated accordingly.
-//   *
-//   * @param input
-//   * @param gradOutput
-//   * @return
-//   */
-//  override def updateGradInput(input: Table, gradOutput: Tensor[Float]): Table = {
-//    gradInput
-//  }
-//}

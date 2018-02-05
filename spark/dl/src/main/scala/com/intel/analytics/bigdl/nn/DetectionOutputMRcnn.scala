@@ -120,7 +120,7 @@ class DetectionOutputMRcnn(val confidence: Double = 0.7, val nmsThresh: Float = 
         keep(topIds.valueAt(i, 1).toInt - 1)
       }).toArray
       val finalRois = BboxUtil.selectTensor(refinedRois, keep, 1)
-      val finalClassIds = BboxUtil.selectTensor(classIds, keep, 1)
+      val finalClassIds = BboxUtil.selectTensor(classIds, keep, 1).apply1(_ - 1)
       val finalScores = BboxUtil.selectTensor(classScores, keep, 1)
       output.resize(1, finalRois.size(1), 6)
       output.narrow(3, 1, 4).copy(finalRois)
