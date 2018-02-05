@@ -25,8 +25,8 @@ import org.apache.log4j.Logger
 
 import scala.collection.mutable
 
-class DetectionOutputMRcnn(confidence: Double = 0.7, nmsThresh: Float = 0.3f,
-  DETECTION_MAX_INSTANCES: Int = 100)(
+class DetectionOutputMRcnn(val confidence: Double = 0.7, val nmsThresh: Float = 0.3f,
+  val DETECTION_MAX_INSTANCES: Int = 100)(
   implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
 
   var nmsTool: Nms = new Nms()

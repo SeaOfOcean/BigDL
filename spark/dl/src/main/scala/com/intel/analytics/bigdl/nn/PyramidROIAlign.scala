@@ -23,9 +23,8 @@ import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericF
 import com.intel.analytics.bigdl.utils.{T, Table}
 
 @SerialVersionUID(-1562995431845030993L)
-class PyramidROIAlign(poolH: Int, poolW: Int, imgH: Int, imgW: Int, imgC: Int)
+class PyramidROIAlign(val poolH: Int, val poolW: Int, val imgH: Int, val imgW: Int, val imgC: Int)
   (implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
-  val resize = ResizeBilinear(poolH, poolW, true)
   val concat = JoinTable(1, 4)
   val concat2 = JoinTable[Int](1, 2)
 

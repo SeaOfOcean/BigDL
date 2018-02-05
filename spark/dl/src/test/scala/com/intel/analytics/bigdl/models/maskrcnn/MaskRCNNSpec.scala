@@ -378,7 +378,8 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
 //    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
 //    model.loadModelWeights(saved)
     loadWeights(model)
-    model.save("/tmp/mask-rcnn.model", true)
+//    model.save("/tmp/mask-rcnn.model", true)
+    model.saveModule("/tmp/mask-rcnn.model", overWrite = true)
 //val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
     println("load model done ...........")
     val out = model.forward(T(input, imageMeta))
@@ -683,6 +684,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
     val input = T(rpn_rois_data, p2, p3, p4, p5)
     val layer = PyramidROIAlign(7, 7, 1024, 1024, 3)
+    layer.saveModule("/tmp/roi", overWrite = true)
     layer.forward(input)
     println(layer.output)
     compare2("roialign", layer.output, 1e-5, "weights")
@@ -709,6 +711,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
 
     val input = T(rpn_rois_data, p5)
     val layer = PyramidROIAlign(7, 7, 1024, 1024, 3)
+    layer.saveModule("/tmp/roi", overWrite = true)
     layer.forward(input)
     println(toHWC(layer.output))
 //    compare2("roialign", layer.output, 1e-5, "weights")
@@ -756,18 +759,18 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   "data preprocessing cat" should "work" in {
-    val images = ImageFrame.read("/home/jxy/data/roger.jpg") ->
+    val images = ImageFrame.read("/home/jxy/data/test/000019.jpg") ->
       AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
       FixExpand(1024, 1024) ->
       ChannelNormalize(103.9f, 116.8f, 123.7f) ->
       MatToTensor() -> ImageMeta(81) ->
       ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
-    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+    val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
     val predictor = LocalPredictor[Float](model, batchPerCore = 1)
     val output = predictor.predictImage(images.toLocal())
     val detectOut = UnmodeDetection()
     detectOut(images)
-    val image = OpenCVMat.read("/home/jxy/data/roger.jpg")
+    val image = OpenCVMat.read("/home/jxy/data/test/000019.jpg")
     val out = images.toLocal()
       .array(0)[(Tensor[Float], Tensor[Float], Tensor[Float], Array[Tensor[Float]])]("unmode")
 
