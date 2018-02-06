@@ -372,15 +372,15 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   "MaskRCNN forward" should "work" in {
-    val input = loadFeatures("input").transpose(2, 4).transpose(3, 4).contiguous()
+    val input = loadFeatures("data").transpose(2, 4).transpose(3, 4).contiguous()
     val imageMeta = loadFeatures("image_metas")
-    var model = MaskRCNN().evaluate()
-//    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
-//    model.loadModelWeights(saved)
-    loadWeights(model)
-//    model.save("/tmp/mask-rcnn.model", true)
-    model.saveModule("/tmp/mask-rcnn.model", overWrite = true)
-//val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+//        var model = MaskRCNN().evaluate()
+////    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
+////    model.loadModelWeights(saved)
+//    loadWeights(model)
+////    model.save("/tmp/mask-rcnn.model", true)
+//    model.saveModule("/tmp/mask-rcnn.model", overWrite = true)
+val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
     println("load model done ...........")
     val out = model.forward(T(input, imageMeta))
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
@@ -406,7 +406,18 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
 //    compare("rpn_class_logits", model("rpn_class_logits").get, 1e-3, "weights")
     compare("rpn_bbox", model("rpn_bbox").get, 1e-3, "weights")
     compare("rpn_class", model("rpn_class").get, 1e-3, "weights")
-    compare("rpn_rois", model("ROI").get, 1e-3, "weights")
+
+//    compare("anchors", model("anchors").get, 1e-3, "weights")
+
+
+    val output1 = model("ROI").get.output.toTensor
+    println(output1.size().mkString("x"))
+    val output = output1.clone()
+    output.narrow(3, 1, 1).copy(output1.narrow(3, 2, 1))
+    output.narrow(3, 2, 1).copy(output1.narrow(3, 1, 1))
+    output.narrow(3, 3, 1).copy(output1.narrow(3, 4, 1))
+    output.narrow(3, 4, 1).copy(output1.narrow(3, 3, 1))
+//    compare("mrcnn_mask", model("mrcnn_mask").get, 1e-3, "weights")
 //    print(model("rpn_class").get.output)
 //
 //    println(model("ROI").get.output)
@@ -621,7 +632,13 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val out = model.forward(T(rpn_class, rpn_bbox, anchors))
     println(out)
 
-    compare("rpn_rois", model("ROI").get, 1e-3, "weights")
+    val output1 = model("ROI").get.output.toTensor
+    val output = output1.clone()
+    output.narrow(3, 1, 1).copy(output1.narrow(3, 2, 1))
+    output.narrow(3, 2, 1).copy(output1.narrow(3, 1, 1))
+    output.narrow(3, 3, 1).copy(output1.narrow(3, 4, 1))
+    output.narrow(3, 4, 1).copy(output1.narrow(3, 3, 1))
+    compare2("rpn_rois", output, 1e-3, "weights")
   }
 
   "maskrcnn classifier" should "work" in {
@@ -745,7 +762,7 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
       ChannelNormalize(103.9f, 116.8f, 123.7f) ->
       MatToTensor() -> ImageMeta(81) ->
       ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
-    val model = Module.load[Float]("/tmp/mask-rcnn.model").evaluate()
+    val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
     val predictor = LocalPredictor[Float](model, batchPerCore = 1)
     val output = predictor.predictImage(images.toLocal())
     val detectOut = UnmodeDetection()
@@ -759,8 +776,8 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   "data preprocessing cat" should "work" in {
-    val imagePath = "/home/jxy/data/test/000019.jpg"
-//    val imagePath = "/home/jxy/data/dogs.jpg"
+//    val imagePath = "/home/jxy/data/test/000019.jpg"
+    val imagePath = "/home/jxy/data/dogs.jpg"
     val images = ImageFrame.read(imagePath) ->
       AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
       FixExpand(1024, 1024) ->
@@ -837,14 +854,14 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     println(input.size().mkString("x"))
     val height = mat.height()
     val width = mat.width()
-//    val crop = Cropping2D(Array((height * 0.3).round.toInt, (height * 0.3).round.toInt),
+    //    val crop = Cropping2D(Array((height * 0.3).round.toInt, (height * 0.3).round.toInt),
 //      Array((0.1 * width).round.toInt, (width * 0.2).round.toInt), DataFormat.NCHW)
-    val crop = Cropping2D(Array((0.2 * height).floor.toInt, (0.0 * height).toInt),
-      Array((0.3 * width).floor.toInt, (0.0 * width).toInt), DataFormat.NCHW)
+val crop = Cropping2D(Array((0.2 * height).floor.toInt, (0.0 * height).toInt),
+  Array((0.3 * width).floor.toInt, (0.0 * width).toInt), DataFormat.NCHW)
 //    val crop = Cropping2D(Array(0, height * 0.7 - 20 - 50),
 //      Array(0, width - 30 - 60), DataFormat.NCHW)
     crop.forward(input)
-//    println(toHWC(crop.output))
+    //    println(toHWC(crop.output))
     val resize = ResizeBilinear(300, 400, true)
     resize.forward(crop.output)
     println(toHWC(resize.output))

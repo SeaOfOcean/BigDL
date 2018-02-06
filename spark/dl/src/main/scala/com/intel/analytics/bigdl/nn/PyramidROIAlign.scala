@@ -30,7 +30,8 @@ class PyramidROIAlign(val poolH: Int, val poolW: Int, val imgH: Int, val imgW: I
 
   override def updateOutput(input: Table): Tensor[Float] = {
     // Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
-    val boxes = input[Tensor[Float]](1).squeeze(1)
+    val boxesInput = input[Tensor[Float]](1)
+    val boxes = boxesInput.view(boxesInput.size()).squeeze(1)
     //    require(boxes.dim() == 2 && boxes.size(2) == 4, "boxes should be batchxNx4 tensor," +
 //      s" while actual is ${boxes.size().mkString("x")}")
 val channelDim = 2

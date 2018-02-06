@@ -61,9 +61,10 @@ class DetectionOutputMRcnn(val confidence: Double = 0.7, val nmsThresh: Float = 
   }
 
 
-  def refineDetection(rois: Tensor[Float], probs: Tensor[Float],
-    deltas: Tensor[Float], window: Tensor[Float]): Tensor[Float] = {
-    deltas.squeeze(2)
+  def refineDetection(_rois: Tensor[Float], probs: Tensor[Float],
+    roiDeltas: Tensor[Float], window: Tensor[Float]): Tensor[Float] = {
+    val rois = _rois.view(_rois.size()).squeeze(1)
+    val deltas = roiDeltas.view(roiDeltas.size()).squeeze(2)
     // class id for each roi
     val (classScores, classIds) = probs.topk(1, 2, increase = false)
     val deltaSpecific = Tensor[Float](classIds.nElement(), 4)

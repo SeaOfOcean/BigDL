@@ -23,7 +23,7 @@ import com.intel.analytics.bigdl.transform.vision.image.util.BboxUtil
 import com.intel.analytics.bigdl.utils.Table
 
 class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
-  rpnPreNmsTopNTrain: Int, rpnPostNmsTopNTrain: Int)(
+  rpnPreNmsTopNTrain: Int, rpnPostNmsTopNTrain: Int, priorBoxes: Tensor[Float])(
   implicit ev: TensorNumeric[Float]) extends AbstractModule[Table, Tensor[Float], Float] {
 
   @transient private var nms: Nms = _
@@ -73,7 +73,7 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
     scores.resizeAs(fgScores).copy(fgScores)
     scores.resize(inputScore.size(2))
 
-    val priorBoxes = input[Tensor[Float]](3)
+//    val priorBoxes = input[Tensor[Float]](3)
     val anchors = priorBoxes.reshape(Array(priorBoxes.size(2), priorBoxes.size(3)))
 
     val preNmsTopN = if (isTraining()) rpnPreNmsTopNTrain else preNmsTopNTest
@@ -129,10 +129,7 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
       i += 1
     }
     output.resize(1, output.size(1), output.size(2))
-    println("rpn_rois ========================")
-    println(output)
 
-    println("rpn_rois ========================end")
     output
   }
 
@@ -145,10 +142,11 @@ class ProposalMaskRcnn(preNmsTopNTest: Int, postNmsTopNTest: Int,
 
 object ProposalMaskRcnn {
   def apply(preNmsTopNTest: Int, postNmsTopNTest: Int,
-    rpnPreNmsTopNTrain: Int = 12000, rpnPostNmsTopNTrain: Int = 2000)(
+    rpnPreNmsTopNTrain: Int = 12000, rpnPostNmsTopNTrain: Int = 2000,
+    anchors: Tensor[Float] = null)(
     implicit ev: TensorNumeric[Float]): ProposalMaskRcnn =
     new ProposalMaskRcnn(preNmsTopNTest, postNmsTopNTest,
-      rpnPreNmsTopNTrain, rpnPostNmsTopNTrain)
+      rpnPreNmsTopNTrain, rpnPostNmsTopNTrain, anchors)
 
   val height = 1024f
   val width = 1024f

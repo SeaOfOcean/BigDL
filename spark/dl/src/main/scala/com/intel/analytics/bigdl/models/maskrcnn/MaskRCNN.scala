@@ -16,6 +16,9 @@
 
 package com.intel.analytics.bigdl.models.maskrcnn
 
+import java.io.File
+import java.nio.file.Paths
+
 import com.intel.analytics.bigdl.Module
 import com.intel.analytics.bigdl.models.resnet.{Convolution, ResNet}
 import com.intel.analytics.bigdl.models.resnet.ResNet.{DatasetType, ShortcutType}
@@ -23,7 +26,7 @@ import com.intel.analytics.bigdl.nn.Graph.ModuleNode
 import com.intel.analytics.bigdl.nn._
 import com.intel.analytics.bigdl.nn.abstractnn.{AbstractModule, TensorModule}
 import com.intel.analytics.bigdl.nn.ops.Conv2DTranspose
-import com.intel.analytics.bigdl.tensor.Tensor
+import com.intel.analytics.bigdl.tensor.{Storage, Tensor}
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric
 import com.intel.analytics.bigdl.utils.{T, Table}
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
@@ -170,6 +173,53 @@ object MaskRCNN {
     Array(C1, C2, C3, C4, C5)
   }
 
+
+  middleRoot = "/home/jxy/data/maskrcnn/weights/anchors"
+  val anchors1 = loadFeatures("anchors").resize(1, 261888, 4)
+  val anchors = anchors1.clone()
+  anchors.narrow(3, 1, 1).copy(anchors1.narrow(3, 2, 1))
+  anchors.narrow(3, 2, 1).copy(anchors1.narrow(3, 1, 1))
+  anchors.narrow(3, 3, 1).copy(anchors1.narrow(3, 4, 1))
+  anchors.narrow(3, 4, 1).copy(anchors1.narrow(3, 3, 1))
+
+
+  var middleRoot = "/home/jxy/data/maskrcnn/weights/"
+
+  def loadFeatures(s: String, middleRoot: String = middleRoot)
+  : Tensor[Float] = {
+    if (s.contains(".txt")) {
+      loadFeaturesFullName(s, hasSize = true, middleRoot)
+    } else {
+      val list = new File(middleRoot).listFiles()
+      if (list != null) {
+        list.foreach(x => {
+          if (x.getName.matches(s"$s-.*txt")) {
+            return loadFeaturesFullName(x.getName, hasSize = true, middleRoot)
+          }
+        })
+      }
+      println(s"cannot map $s")
+      null
+    }
+  }
+
+
+  def loadFeaturesFullName(s: String, hasSize: Boolean = true,
+    middleRoot: String = middleRoot): Tensor[Float] = {
+    loadFeaturesFullPath(Paths.get(middleRoot, s).toString, hasSize)
+  }
+
+  def loadFeaturesFullPath(s: String, hasSize: Boolean = true): Tensor[Float] = {
+    if (hasSize) {
+      val size = s.substring(s.lastIndexOf("-") + 1, s.lastIndexOf("."))
+        .split("_").map(x => x.toInt)
+      Tensor(Storage(Source.fromFile(s).getLines()
+        .map(x => x.toFloat).toArray)).reshape(size)
+    } else {
+      Tensor(Storage(Source.fromFile(s).getLines()
+        .map(x => x.toFloat).toArray))
+    }
+  }
   /**
    * Builds the Region Proposal Network.
    * It wraps the RPN graph so it can be used multiple times with shared weights.
@@ -252,8 +302,8 @@ object MaskRCNN {
         .inputs(rpn_feature_maps(i))
     }).toArray
 
-    var anchors = JoinTable(3, 3).inputs(priorBoxes)
-    anchors = InferReshape(Array(1, -1, 4)).inputs(anchors)
+//    var anchors = JoinTable(3, 3).inputs(priorBoxes)
+//    anchors = InferReshape(Array(1, -1, 4)).setName("anchors").inputs(anchors)
 
     // RPN Model
     val rpn = buildRpnModel(RPN_ANCHOR_STRIDE, RPN_ANCHOR_RATIOS.length, 256)
@@ -270,9 +320,13 @@ object MaskRCNN {
     val rpn_bbox = JoinTable(2, 3).setName("rpn_bbox")
       .inputs(select(rpn_feature_maps.length, 3, mapTable))
 
-    val rpn_rois = ProposalMaskRcnn(6000, 1000)
+//    val rpn_rois = ProposalMaskRcnn(6000, 1000)
+//      .setName("ROI")
+//      .inputs(rpn_class, rpn_bbox, anchors)
+
+    val rpn_rois = ProposalMaskRcnn(6000, 1000, anchors = anchors)
       .setName("ROI")
-      .inputs(rpn_class, rpn_bbox, anchors)
+      .inputs(rpn_class, rpn_bbox)
 
     val (mrcnn_class_logits, mrcnn_class, mrcnn_bbox) =
       fpnClassifierGraph(rpn_rois, mrcnn_feature_maps, IMAGE_SHAPE, POOL_SIZE, NUM_CLASSES)
@@ -285,7 +339,7 @@ object MaskRCNN {
       NUM_CLASSES)
 
     Graph(Array(data, imInfo), Array(detections, mrcnn_class, mrcnn_bbox, mrcnn_mask,
-      rpn_rois, rpn_class, rpn_bbox)).setName("mask_rcnn")
+      rpn_rois, rpn_class, rpn_bbox, mrcnn_class_logits)).setName("mask_rcnn")
   }
 
   def select(total: Int, dim: Int, input: ModuleNode[Float]): Array[ModuleNode[Float]] = {
@@ -393,10 +447,10 @@ object MaskRCNN {
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn4").inputs(x)
     x = ReLU(true).inputs(x)
 
-    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).setName("mrcnn_mask_deconv").inputs(x)
-    x = ReLU(true).inputs(x)
-    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).setName("mrcnn_mask").inputs(x)
-    x = Sigmoid().inputs(x)
+    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).inputs(x)
+    x = ReLU(true).setName("mrcnn_mask_deconv").inputs(x)
+    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).inputs(x)
+    x = Sigmoid().setName("mrcnn_mask").inputs(x)
     x
   }
 
