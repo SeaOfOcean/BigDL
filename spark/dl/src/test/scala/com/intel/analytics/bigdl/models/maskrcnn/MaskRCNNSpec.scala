@@ -778,8 +778,8 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
   }
 
   "data preprocessing cat" should "work" in {
-    val imagePath = "/home/jxy/data/test/000019.jpg"
-//    val imagePath = "/home/jxy/data/dogs.jpg"
+//    val imagePath = "/home/jxy/data/test/000019.jpg"
+    val imagePath = "/home/jxy/data/dogs.jpg"
     val images = ImageFrame.read(imagePath) ->
       AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
       FixExpand(1024, 1024) ->
