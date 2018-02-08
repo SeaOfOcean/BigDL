@@ -32,16 +32,9 @@ class PyramidROIAlign(val poolH: Int, val poolW: Int, val imgH: Int, val imgW: I
     // Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
     val boxesInput = input[Tensor[Float]](1)
     val boxes = boxesInput.view(boxesInput.size()).squeeze(1)
-    //    require(boxes.dim() == 2 && boxes.size(2) == 4, "boxes should be batchxNx4 tensor," +
-//      s" while actual is ${boxes.size().mkString("x")}")
-val channelDim = 2
+    val channelDim = 2
     // Assign each ROI to a level in the pyramid based on the ROI area
     val splits = boxes.split(2)
-//    val y1 = splits(0)
-//    val x1 = splits(1)
-//    val y2 = splits(2)
-//    val x2 = splits(3)
-
     val x1 = splits(0)
     val y1 = splits(1)
     val x2 = splits(2)
@@ -53,7 +46,7 @@ val channelDim = 2
     // the fact that our coordinates are normalized here.
     // e.g. a 224x224 ROI (in pixels) maps to P4
     val imageArea = imgH * imgW
-    val roiLevel = log2((h.clone().cmul(w)).sqrt() / (224.0f / Math.sqrt(imageArea).toFloat))
+    val roiLevel = log2((h.cmul(w)).sqrt() / (224.0f / Math.sqrt(imageArea).toFloat))
     roiLevel.apply1(x => {
       if (x.equals(Float.NaN)) Float.NegativeInfinity else Math.round(x)
     })
@@ -75,41 +68,11 @@ val channelDim = 2
       val cropResize = Tensor[Float](ix.length, input[Tensor[Float]](2).size(channelDim),
         poolH, poolW)
       val featureMap = input[Tensor[Float]](i + 1)
-      // todo: hdim, wdim
-      val hdim = 3
-      val wdim = 4
       ix.zip(Stream from (1)).foreach(ind => {
         val box = boxes(ind._1)
         PyramidROIAlign.cropAndResize(featureMap, box, poolH, poolW, cropResize(ind._2))
-//        val height = featureMap.size(hdim)
-//        val width = featureMap.size(wdim)
-//        var hsOff = (height - 1) * box.valueAt(2)
-//        var heOff = (height - 1) * (1 - box.valueAt(4))
-//        var wsOff = (width - 1) * box.valueAt(1)
-//        var weOff = (width - 1) * (1 - box.valueAt(3))
-//        if (hsOff + heOff > height || weOff + wsOff > width) {
-//          hsOff = 0
-//          heOff = 0
-//          wsOff = 0
-//          weOff = 0
-//        }
-//        val crop = Cropping2D(Array(hsOff.floor.toInt, heOff.floor.toInt),
-//          Array(wsOff.floor.toInt, weOff.floor.toInt), DataFormat.NCHW)
-//
-//        resize.forward(crop.forward(featureMap))
-//        cropResize(ind._2).copy(resize.output.squeeze(1))
       })
       if (cropResize.nElement() > 0) pooledTable.insert(cropResize)
-
-      // Crop and Resize
-      // From Mask R-CNN paper: "We sample four regular locations, so
-      // that we can evaluate either max or average pooling. In fact,
-      // interpolating only a single value at each bin center (without
-      // pooling) is nearly as effective."
-      //
-      // Here we use the simplified approach of a single value per bin,
-      // which is how it's done in tf.crop_and_resize()
-      // Result: [batch * num_boxes, pool_height, pool_width, channels]
 
       i += 1
       level += 1
@@ -120,19 +83,12 @@ val channelDim = 2
     val ix = boxToLevels.squeeze()
       .toArray().asInstanceOf[Array[Int]].zipWithIndex.sortBy(_._1).map(_._2)
 
-    // Feature Maps. List of feature maps from different level of the
-    // feature pyramid. Each is [batch, height, width, channels]
-
     i = 0
-
-
     output.resizeAs(pooled)
     while (i < ix.length) {
       i += 1
       output(i).copy(pooled(ix(i - 1) + 1))
     }
-    // Assign each ROI to a level in the pyramid based on the ROI area.
-//    output.resize(1, output.size(1), output.size(2), output.size(3), output.size(4))
     output
   }
 

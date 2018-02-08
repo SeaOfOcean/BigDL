@@ -704,9 +704,14 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
     val input = T(rpn_rois_data, p2, p3, p4, p5)
     val layer = PyramidROIAlign(7, 7, 1024, 1024, 3)
     layer.saveModule("/tmp/roi", overWrite = true)
-    layer.forward(input)
-    println(layer.output)
-    compare2("roialign", layer.output, 1e-5, "weights")
+    val start = System.nanoTime()
+    val loop = 10
+    (1 to loop).foreach(i => {
+      layer.forward(input)
+    })
+    println(s"time is ${(System.nanoTime() - start) / loop / 1e9}")
+//    println(layer.output)
+    compare2("roialign", layer.output, 1e-4, "weights")
   }
 
   "PyramidRoiAlign single forward" should "work properly" in {
