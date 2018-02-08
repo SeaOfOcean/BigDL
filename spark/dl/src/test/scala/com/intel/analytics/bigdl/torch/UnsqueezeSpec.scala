@@ -136,11 +136,4 @@ class UnsqueezeSpec extends TorchSpec {
     val input = Tensor[Double](2, 2).rand()
     layer.forward(input).size() should be(Array(2, 2, 1))
   }
-
-  "A Unsqueeze(1)" should "generate correct output and grad" in {
-    val layer = Unsqueeze[Double](1)
-    val input = Tensor[Double](2, 2).rand()
-    layer.forward(input).size() should be(Array(1, 2, 2))
-    println(layer.output.isContiguous())
-  }
 }

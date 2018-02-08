@@ -197,8 +197,8 @@ class Proposal(preNmsTopNTest: Int, postNmsTopNTest: Int, val ratios: Array[Floa
 }
 
 object Proposal {
-  def apply(preNmsTopN: Int, postNmsTopN: Int, ratios: Array[Float] = null,
-    scales: Array[Float] = null, rpnPreNmsTopNTrain: Int = 12000, rpnPostNmsTopNTrain: Int = 2000)
+  def apply(preNmsTopN: Int, postNmsTopN: Int, ratios: Array[Float], scales: Array[Float],
+    rpnPreNmsTopNTrain: Int = 12000, rpnPostNmsTopNTrain: Int = 2000)
     (implicit ev: TensorNumeric[Float]): Proposal
   = new Proposal(preNmsTopN, postNmsTopN, ratios, scales, rpnPreNmsTopNTrain, rpnPostNmsTopNTrain)
 }

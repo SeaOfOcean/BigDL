@@ -80,7 +80,6 @@ class OpenCVMat() extends Mat with Serializable {
 
   /**
    * draw bounding box on current mat
-   *
    * @param bbox bounding box
    * @param text text
    * @param font text fond
