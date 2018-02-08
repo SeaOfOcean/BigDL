@@ -132,7 +132,8 @@ val channelDim = 2
       output(i).copy(pooled(ix(i - 1) + 1))
     }
     // Assign each ROI to a level in the pyramid based on the ROI area.
-    output.resize(output.size(1), output.size(2), output.size(3), output.size(4))
+//    output.resize(1, output.size(1), output.size(2), output.size(3), output.size(4))
+    output
   }
 
   override def updateGradInput(input: Table, gradOutput: Tensor[Float]): Table = {

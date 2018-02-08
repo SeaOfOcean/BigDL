@@ -374,13 +374,13 @@ class MaskRCNNSpec extends FlatSpec with Matchers with BeforeAndAfter {
   "MaskRCNN forward" should "work" in {
     val input = loadFeatures("data").transpose(2, 4).transpose(3, 4).contiguous()
     val imageMeta = loadFeatures("image_metas")
-//        var model = MaskRCNN().evaluate()
-////    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
-////    model.loadModelWeights(saved)
-//    loadWeights(model)
-////    model.save("/tmp/mask-rcnn.model", true)
-//    model.saveModule("/tmp/mask-rcnn.model", overWrite = true)
-val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
+        var model = MaskRCNN().evaluate()
+//    val saved = Module.load[Float]("/tmp/mask-rcnn.model")
+//    model.loadModelWeights(saved)
+    loadWeights(model)
+//    model.save("/tmp/mask-rcnn.model", true)
+    model.saveModule("/tmp/mask-rcnn.model", overWrite = true)
+//val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
     println("load model done ...........")
     val out = model.forward(T(input, imageMeta))
     middleRoot = "/home/jxy/data/maskrcnn/weights/rpn_class_logits"
@@ -428,6 +428,8 @@ val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
     println(model.output.toTable[Tensor[Float]](5).size().mkString("x"))
     println(model.output.toTable[Tensor[Float]](6).size().mkString("x"))
     println(model.output.toTable[Tensor[Float]](7).size().mkString("x"))
+    println(model.output.toTable[Tensor[Float]](4))
+    println("hehe")
 //
 //    def compare(name: String): Unit = {
 //      middleRoot = s"/home/jxy/data/maskrcnn/weights/$name"
@@ -776,8 +778,8 @@ val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
   }
 
   "data preprocessing cat" should "work" in {
-//    val imagePath = "/home/jxy/data/test/000019.jpg"
-    val imagePath = "/home/jxy/data/dogs.jpg"
+    val imagePath = "/home/jxy/data/test/000019.jpg"
+//    val imagePath = "/home/jxy/data/dogs.jpg"
     val images = ImageFrame.read(imagePath) ->
       AspectScale(800, 1, 1024, useScaleFactor = false, minScale = Some(1)) ->
       FixExpand(1024, 1024) ->
@@ -785,6 +787,7 @@ val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
       MatToTensor() -> ImageMeta(81) ->
       ImageFrameToSample(Array(ImageFeature.imageTensor, ImageMeta.imageMeta))
     val model = Module.loadModule[Float]("/tmp/mask-rcnn.model").evaluate()
+//    SpatialShareConvolution.shareConvolution(model)
     val predictor = LocalPredictor[Float](model, batchPerCore = 1)
     val output = predictor.predictImage(images.toLocal())
     val detectOut = UnmodeDetection()
