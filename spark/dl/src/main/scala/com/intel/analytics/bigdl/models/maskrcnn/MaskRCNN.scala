@@ -447,10 +447,11 @@ object MaskRCNN {
     x = SpatialBatchNormalization(256, eps = 0.001).setName("mrcnn_mask_bn4").inputs(x)
     x = ReLU(true).inputs(x)
 
-    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).inputs(x)
-    x = ReLU(true).setName("mrcnn_mask_deconv").inputs(x)
-    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).inputs(x)
-    x = Sigmoid().setName("mrcnn_mask").inputs(x)
+    x = SpatialFullConvolution(256, 256, 2, 2, 2, 2).setName("mrcnn_mask_deconv").inputs(x)
+    x = ReLU(true).inputs(x)
+    x = SpatialConvolution(256, num_classes, 1, 1, 1, 1).setName("mrcnn_mask").inputs(x)
+    x = Sigmoid().inputs(x)
+    x = Unsqueeze(1).inputs(x)
     x
   }
 
@@ -501,7 +502,7 @@ class UnmodeDetection() extends FeatureTransformer {
     val classIds = detections.select(2, 5)
     val scores = detections.select(2, 6)
     val masks = (1 to boxes.size(1)).map(i => {
-      mrcnnMask(classIds.valueAt(i).toInt)
+      mrcnnMask(i)(classIds.valueAt(i).toInt)
     }).toArray
     val hScale = feature.getOriginalHeight / (windows.y2 - windows.y1)
     val wScale = feature.getOriginalWidth / (windows.x2 - windows.x1)
@@ -516,6 +517,7 @@ class UnmodeDetection() extends FeatureTransformer {
     val fullMasks = (1 to boxes.size(1)).map(i => {
       unmodeMask(masks(i - 1), boxes(i), feature.getOriginalHeight, feature.getOriginalWidth)
     }).toArray
+    classIds.apply1(_ - 1)
     feature("unmode") = (boxes, classIds, scores, fullMasks)
   }
 
